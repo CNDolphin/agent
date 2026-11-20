@@ -1,4 +1,4 @@
-﻿﻿<#
+﻿<#
 .SYNOPSIS
   构建 Windows 安装包:PyInstaller 冻结桌面客户端,再由 Inno Setup 生成安装向导。
 
