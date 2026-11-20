@@ -1,0 +1,76 @@
+Name: mhagent
+Host: 0.0.0.0
+Port: 8899
+# SSE 长连接需要,关闭 go-zero 默认 3s 的整体超时;各普通接口依赖客户端侧超时兜底
+Timeout: 0
+# 报告/内容包上传上限 64MB,logic 内再按各自 MaxSizeMB 二次校验
+MaxBytes: 67108864
+Env: dev
+Log:
+  Level: info
+  Encoding: plain
+Redis:
+  Addr: localhost:6379
+  Password: ""
+  DB: 0
+Auth:
+  AccessTTLMinutes: 15
+  RefreshTTLHours: 720
+  AdminTTLHours: 12
+Credits:
+  SignupGrant: 100
+  LowBalanceThreshold: 10
+  ReSignupCooldownDays: 30
+  HoldReclaimMinutes: 10
+Pricing:
+  CacheTTLSeconds: 30
+RateLimit:
+  PerMinute: 30
+Admin:
+  MaxGrant: 100000
+  MaxPricePerM: 100000
+  ConfirmRoles:
+    - super
+Sms:
+  Provider: mock
+  CodeTTLSeconds: 300
+  ResendSeconds: 60
+  PhoneDailyLimit: 5
+  IPDailyLimit: 20
+  Templates:
+    Login: SMS_LOGIN_CODE
+  Aliyun:
+    Endpoint: dysmsapi.aliyuncs.com
+    SignName: ""
+    Templates:
+      Login: ""
+      Emergency: ""
+Notify:
+  Provider: mock
+  Templates:
+    crisis_contact_v1: SMS_CRISIS_CONTACT
+  Email:
+    AccountName: noreply@example.com
+    FromAlias: 心理健康助手
+Payment:
+  DefaultChannel: mock
+  MaxOrdersPerUserPerDay: 20
+Upstream:
+  Kind: deepseek
+  BaseURL: https://api.deepseek.com
+  TimeoutSeconds: 60
+  MaxRetries: 2
+Consent:
+  Version: v1
+  URL: ""
+  Text: |
+    我已阅读并同意《心理健康助手服务与隐私说明》。
+    我理解本服务仅提供心理支持与信息参考,不构成医疗诊断或治疗建议。
+    我同意在检测到高风险情况时,按我指定的紧急联系人发送克制、必要的提醒。
+    我的对话内容不会被长期保存,用量记录仅包含 token 数量等非内容信息。
+Reports:
+  Dir: ./data/reports
+  MaxSizeMB: 20
+Content:
+  Dir: ./data/content
+  MaxSizeMB: 50

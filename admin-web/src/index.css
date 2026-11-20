@@ -1,0 +1,730 @@
+/*
+ * 后台视觉系统：「神经基因组检验台账」
+ * 检验纸冷灰底、墨蓝字、螺旋青主色；数据等宽对齐，像一份可审计的检验单。
+ */
+
+:root {
+  --paper: #f2f6f7;
+  --surface: #ffffff;
+  --ink: #0e1b23;
+  --ink-2: #4a5f6b;
+  --ink-3: #7c8f99;
+  --rule: #d8e3e7;
+  --rule-soft: #e7eef1;
+  --teal: #0c8f86;
+  --teal-deep: #0a6f69;
+  --teal-bright: #6fe3d6;
+  --indigo: #2c4cc4;
+  --violet: #6e59c9;
+  --amber: #b4761f;
+  --crimson: #b23a48;
+  --sider: #0b1720;
+  --mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'PingFang SC', 'HarmonyOS Sans SC',
+    'Microsoft YaHei', 'Segoe UI', sans-serif;
+  color: var(--ink);
+  background-color: var(--paper);
+  background-image:
+    radial-gradient(880px 460px at 6% -10%, rgba(12, 143, 134, 0.1), transparent 62%),
+    radial-gradient(720px 420px at 98% 0%, rgba(44, 76, 196, 0.07), transparent 60%),
+    linear-gradient(var(--rule-soft) 1px, transparent 1px),
+    linear-gradient(90deg, var(--rule-soft) 1px, transparent 1px);
+  background-size:
+    auto,
+    auto,
+    40px 40px,
+    40px 40px;
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: rgba(12, 143, 134, 0.18);
+}
+
+/* ---------- 侧栏：双螺旋导引脊 ---------- */
+
+.admin-sider {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg, #0b1720 0%, #0c1a24 58%, #09131a 100%);
+}
+
+.admin-sider::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(320px 190px at 18% 0%, rgba(12, 143, 134, 0.2), transparent 70%);
+  pointer-events: none;
+}
+
+.sider-inner {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.brand-mark {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  color: var(--teal-bright);
+}
+
+.brand-name {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  color: #eaf6f5;
+}
+
+.brand-sub {
+  margin-top: 3px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: #7f99a6;
+}
+
+.sider-foot {
+  margin-top: auto;
+  padding: 14px 18px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: #5c7683;
+}
+
+.sider-helix {
+  position: absolute;
+  top: -120px;
+  bottom: -120px;
+  right: 6px;
+  width: 26px;
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.sider-helix svg {
+  width: 100%;
+  height: 100%;
+  animation: helix-drift 26s linear infinite;
+}
+
+@keyframes helix-drift {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-160px);
+  }
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.menu-code {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: #5f7b88;
+}
+
+.ant-menu-item-selected .menu-code {
+  color: var(--teal-bright);
+}
+
+.menu-label {
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+/* ---------- 顶栏：检验单抬头 ---------- */
+
+.admin-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 28px;
+  border-bottom: 1px solid var(--rule);
+  backdrop-filter: blur(10px);
+  /* antd Header 默认行高 64px，会把内部小标签撑成大方块，这里收掉 */
+  line-height: 1.4;
+}
+
+.top-meta {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+/* 台账编号：等宽字 + 一道细下划线，像检验单的编号栏，而不是一颗按钮 */
+.crumb-code {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  line-height: 1.2;
+  color: var(--teal-deep);
+  padding-bottom: 3px;
+  border-bottom: 1px solid rgba(12, 143, 134, 0.4);
+}
+
+.crumb-slash {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-3);
+  opacity: 0.75;
+}
+
+.crumb-name {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.crumb-sep {
+  width: 1px;
+  height: 12px;
+  background: var(--rule);
+  margin: 0 2px;
+}
+
+.crumb-date {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+}
+
+.top-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.user-name {
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+}
+
+/* 角色标记：白底细描边 + 状态点，替代抢眼的金色胶囊 */
+.chip-role {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  line-height: 1;
+  padding: 5px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--rule);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ink-2);
+}
+
+.chip-role::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--teal);
+}
+
+.chip-ops::before {
+  background: var(--indigo);
+}
+
+.top-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--rule);
+}
+
+.logout-btn.ant-btn {
+  height: 26px;
+  padding: 0 8px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.logout-btn.ant-btn:hover {
+  color: var(--teal-deep) !important;
+  background: rgba(12, 143, 134, 0.07) !important;
+}
+
+/* ---------- 内容区 ---------- */
+
+.admin-content {
+  padding: 26px 28px 40px;
+}
+
+.admin-content-inner {
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.page-kicker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.page-code {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.2em;
+  color: var(--ink-3);
+}
+
+.page-dash {
+  display: inline-block;
+  width: 26px;
+  height: 1px;
+  background: var(--rule);
+}
+
+.page-title {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.page-desc {
+  margin: 8px 0 0;
+  max-width: 720px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--ink-2);
+}
+
+.page-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 2px;
+}
+
+/* ---------- 表格与卡片：检验单结构 ---------- */
+
+.ant-table-wrapper {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.ant-table-wrapper .ant-table {
+  background: transparent;
+}
+
+.ant-table-thead > tr > th {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.07em;
+  color: var(--ink-2) !important;
+}
+
+.ant-table-tbody > tr > td {
+  font-variant-numeric: tabular-nums;
+}
+
+.ant-table-expanded-row > td {
+  background: #fafcfc;
+}
+
+.ant-card {
+  border-color: var(--rule);
+}
+
+.ant-statistic-title {
+  font-family: var(--mono);
+  font-size: 10.5px !important;
+  letter-spacing: 0.14em;
+  color: var(--ink-3) !important;
+}
+
+.ant-statistic-content {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.ant-alert {
+  border-radius: 8px;
+}
+
+.ant-btn-primary {
+  box-shadow: 0 1px 0 rgba(9, 60, 57, 0.18);
+}
+
+/* ---------- 登录页 ---------- */
+
+.login-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(380px, 0.85fr);
+  background: var(--paper);
+}
+
+.login-plate {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 44px 52px 36px;
+  color: #e7f3f1;
+  background:
+    radial-gradient(620px 420px at 18% 8%, rgba(12, 143, 134, 0.26), transparent 68%),
+    radial-gradient(520px 380px at 96% 96%, rgba(44, 76, 196, 0.28), transparent 66%),
+    linear-gradient(160deg, #0b1720 0%, #0b1c26 58%, #08131a 100%);
+}
+
+.login-plate::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 44px 44px;
+  pointer-events: none;
+}
+
+.plate-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+.plate-brand .brand-mark {
+  width: 34px;
+  height: 34px;
+}
+
+.plate-name {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.26em;
+  color: #ecfaf8;
+}
+
+.plate-sub {
+  margin-top: 3px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: #86a3af;
+}
+
+.plate-body {
+  position: relative;
+  z-index: 1;
+  max-width: 520px;
+}
+
+.plate-kicker {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.28em;
+  color: #7fc9c0;
+  margin-bottom: 18px;
+}
+
+.plate-title {
+  margin: 0;
+  font-size: clamp(30px, 3.4vw, 46px);
+  line-height: 1.24;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: #f3fbf9;
+}
+
+.plate-title em {
+  font-style: normal;
+  color: var(--teal-bright);
+}
+
+.plate-copy {
+  margin: 18px 0 0;
+  max-width: 440px;
+  font-size: 13px;
+  line-height: 1.9;
+  color: #9db4bd;
+}
+
+.plate-wave {
+  position: relative;
+  z-index: 1;
+  margin: 34px 0 26px;
+  width: 100%;
+  height: 84px;
+}
+
+.plate-wave path {
+  fill: none;
+  stroke: rgba(111, 227, 214, 0.75);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-dasharray: 1200;
+  stroke-dashoffset: 1200;
+  animation: trace 2.8s ease-out forwards;
+}
+
+.plate-wave .helix {
+  stroke: rgba(111, 227, 214, 0.28);
+}
+
+.plate-wave .pulse {
+  stroke: rgba(148, 163, 255, 0.65);
+  animation-delay: 0.35s;
+}
+
+@keyframes trace {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.plate-ledger {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 18px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.plate-ledger div {
+  min-width: 0;
+}
+
+.plate-ledger dt {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: #6f8c98;
+  margin-bottom: 6px;
+}
+
+.plate-ledger dd {
+  margin: 0;
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+  color: #cfe3e0;
+}
+
+.login-form-side {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 32px;
+}
+
+.login-sheet {
+  width: 100%;
+  max-width: 380px;
+  position: relative;
+  padding: 30px 28px 26px 34px;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  box-shadow: 0 18px 48px -32px rgba(14, 27, 35, 0.4);
+}
+
+.login-sheet::before {
+  content: '';
+  position: absolute;
+  left: 12px;
+  top: 26px;
+  bottom: 26px;
+  width: 6px;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--rule) 0,
+    var(--rule) 1px,
+    transparent 1px,
+    transparent 8px
+  );
+  opacity: 0.8;
+}
+
+.login-kicker {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  color: var(--ink-3);
+  margin-bottom: 10px;
+}
+
+.login-title {
+  margin: 0 0 4px;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.login-sub {
+  margin: 0 0 22px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+
+.login-sheet .ant-form-item-label > label {
+  font-family: var(--mono);
+  font-size: 10.5px !important;
+  letter-spacing: 0.12em;
+  color: var(--ink-3) !important;
+}
+
+.login-sheet .ant-btn-primary {
+  height: 40px;
+  letter-spacing: 0.06em;
+}
+
+.login-foot {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--rule);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+/* ---------- 响应式与动效偏好 ---------- */
+
+@media (max-width: 900px) {
+  .login-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .login-plate {
+    padding: 32px 28px 26px;
+    gap: 18px;
+  }
+
+  .plate-wave {
+    height: 60px;
+    margin: 20px 0 18px;
+  }
+
+  .login-form-side {
+    padding: 28px 20px 40px;
+  }
+
+  .admin-header {
+    padding: 0 16px;
+  }
+
+  .admin-content {
+    padding: 20px 16px 32px;
+  }
+
+  .page-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .page-actions {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sider-helix svg,
+  .plate-wave path {
+    animation: none;
+  }
+
+  .plate-wave path {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ---------- 折叠态侧栏 ---------- */
+
+.ant-layout-sider-collapsed .brand {
+  justify-content: center;
+  padding: 20px 0 16px;
+}
+
+.ant-layout-sider-collapsed .brand-text,
+.ant-layout-sider-collapsed .sider-foot,
+.ant-layout-sider-collapsed .menu-label,
+.ant-layout-sider-collapsed .menu-code {
+  display: none;
+}
+
+.ant-layout-sider-collapsed .menu-item {
+  justify-content: center;
+}
+

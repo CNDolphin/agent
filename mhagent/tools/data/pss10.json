@@ -1,0 +1,15 @@
+{
+  "scale": "pss10",
+  "version": "1",
+  "intro": "过去一个月里,你多经常有以下感受?",
+  "options": [
+    {"value": 0, "label": "从来没有"},
+    {"value": 1, "label": "很少"},
+    {"value": 2, "label": "有时"},
+    {"value": 3, "label": "经常"},
+    {"value": 4, "label": "总是"}
+  ],
+  "items": [],
+  "todo": "待授权确认后填入题目文本",
+  "available": false
+}

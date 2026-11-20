@@ -1,0 +1,23 @@
+# Windows 分发配置模板。构建时由 packaging/windows/build.ps1 替换网关地址。
+gateway:
+  base_url: "__GATEWAY_BASE_URL__"
+  model: "deepseek-flash"
+  timeout_seconds: 30
+
+storage:
+  data_dir: "~/.mhagent" # Windows 下展开为 %USERPROFILE%\.mhagent
+
+session:
+  max_context_chars: 2000
+  max_tokens: 1024
+  report_memory_chars: 2000
+  low_balance_threshold: 0
+
+client:
+  dev_tools: false # 最终用户不显示「获取开发验证码」与「模拟支付」
+  window:
+    width: 1100
+    height: 760
+  lan:
+    enabled: true # 开启后监听 0.0.0.0,子账号可用手机/其他电脑访问
+    port: 8780

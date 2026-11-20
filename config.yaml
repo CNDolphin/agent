@@ -1,0 +1,23 @@
+# 本地 Agent 配置示例。此文件不含任何密钥。
+gateway:
+  base_url: "http://121.196.163.41/api"
+  model: "deepseek-flash"
+  timeout_seconds: 30
+
+storage:
+  data_dir: "/Users/jiapenghuang/project/service/program/agent/.mhagent-data"
+
+session:
+  max_context_chars: 2000
+  max_tokens: 1024
+  report_memory_chars: 2000 # 注入对话的报告记忆字符上限
+  low_balance_threshold: 0
+
+client:
+  dev_tools: true # 仅本地开发显示「获取开发验证码」与「模拟支付」
+  window:
+    width: 1100
+    height: 760
+  lan:
+    enabled: true # 开启后监听 0.0.0.0,子账号可用手机/其他电脑访问
+    port: 8780

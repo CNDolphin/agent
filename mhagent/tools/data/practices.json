@@ -1,0 +1,57 @@
+{
+  "practices": {
+    "breathing_478": {
+      "name": "4-7-8 呼吸",
+      "summary": "用较长呼气帮助身体慢下来,适合睡前或焦虑时。",
+      "steps": [
+        {"instruction": "用鼻子轻轻吸气,心里数 1 到 4", "seconds": 4},
+        {"instruction": "屏住呼吸,心里数 1 到 7", "seconds": 7},
+        {"instruction": "用嘴缓缓呼气,心里数 1 到 8", "seconds": 8}
+      ],
+      "repeat": 4,
+      "duration_seconds": 76,
+      "stop_hint": "如果出现头晕、胸闷或明显不适,请立即停止,回到自然呼吸。"
+    },
+    "box_breathing": {
+      "name": "箱式呼吸",
+      "summary": "四段等长的呼吸,帮助把注意力放回当下。",
+      "steps": [
+        {"instruction": "吸气 4 秒", "seconds": 4},
+        {"instruction": "屏息 4 秒", "seconds": 4},
+        {"instruction": "呼气 4 秒", "seconds": 4},
+        {"instruction": "屏息 4 秒", "seconds": 4}
+      ],
+      "repeat": 4,
+      "duration_seconds": 64,
+      "stop_hint": "呼吸不必很深,以不憋气为准;不舒服就停下。"
+    },
+    "body_scan": {
+      "name": "身体扫描",
+      "summary": "从头到脚依次感受身体,练习把注意力从想法带回身体。",
+      "steps": [
+        {"instruction": "把注意力放在头顶和额头,感受温度与紧绷,停留一会儿", "seconds": 30},
+        {"instruction": "注意力移向肩膀和颈部,有紧绷就轻轻放松", "seconds": 30},
+        {"instruction": "注意力移向胸口和腹部,感受呼吸的起伏", "seconds": 30},
+        {"instruction": "注意力移向双手,感受手指的触感", "seconds": 30},
+        {"instruction": "注意力移向双腿和双脚,感受与地面接触的感觉", "seconds": 30}
+      ],
+      "repeat": 1,
+      "duration_seconds": 150,
+      "stop_hint": "如果某个部位让你不舒服,可以跳过,不必强迫自己。"
+    },
+    "grounding_54321": {
+      "name": "5-4-3-2-1 接地练习",
+      "summary": "用五种感官把自己拉回当下,适合情绪很满的时候。",
+      "steps": [
+        {"instruction": "说出你能看到的 5 样东西", "seconds": 30},
+        {"instruction": "说出你能摸到的 4 样东西", "seconds": 30},
+        {"instruction": "说出你能听到的 3 种声音", "seconds": 30},
+        {"instruction": "说出你能闻到的 2 种气味", "seconds": 30},
+        {"instruction": "说出你能尝到的 1 种味道", "seconds": 30}
+      ],
+      "repeat": 1,
+      "duration_seconds": 150,
+      "stop_hint": "找不到对应的感官也没关系,慢慢来即可。"
+    }
+  }
+}

@@ -1,0 +1,12 @@
+DROP TABLE IF EXISTS audit_logs;
+DROP TABLE IF EXISTS admin_users;
+DROP TABLE IF EXISTS notify_logs;
+DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS packages;
+DROP TABLE IF EXISTS consents;
+DROP TABLE IF EXISTS usage_logs;
+DROP TABLE IF EXISTS model_price_history;
+DROP TABLE IF EXISTS model_prices;
+DROP TABLE IF EXISTS credit_ledger;
+DROP TABLE IF EXISTS credit_accounts;
+DROP TABLE IF EXISTS users;

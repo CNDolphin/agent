@@ -1,0 +1,826 @@
+{
+  "version": "I-051",
+  "scale": {
+    "min": 1,
+    "max": 5,
+    "labels": [
+      "完全不符合",
+      "比较不符合",
+      "一半一半",
+      "比较符合",
+      "完全符合"
+    ]
+  },
+  "intelligences": [
+    {
+      "id": "lang",
+      "name": "语言智能",
+      "indicators": [
+        {
+          "id": "l1",
+          "name": "阅读能力",
+          "definition": "清楚理解所见文字意义的能力"
+        },
+        {
+          "id": "l2",
+          "name": "口语能力",
+          "definition": "熟练流畅表达外在事物与内心想法的能力"
+        },
+        {
+          "id": "l3",
+          "name": "书写能力",
+          "definition": "精准通过文字形式表达内心想法的能力"
+        },
+        {
+          "id": "l4",
+          "name": "理解能力",
+          "definition": "精准陈述文字或语言传递的中心意思"
+        },
+        {
+          "id": "l5",
+          "name": "感受能力",
+          "definition": "对文字或语言传递的意义产生内在情绪的能力"
+        }
+      ]
+    },
+    {
+      "id": "logic",
+      "name": "逻辑数学智能",
+      "indicators": [
+        {
+          "id": "g1",
+          "name": "思辩能力",
+          "definition": "习惯以思考方式清晰分析事物与问题的能力"
+        },
+        {
+          "id": "g2",
+          "name": "归纳能力",
+          "definition": "处理问题的条理性与步骤的能力"
+        },
+        {
+          "id": "g3",
+          "name": "演绎能力",
+          "definition": "擅长举一反三的能力"
+        },
+        {
+          "id": "g4",
+          "name": "运算能力",
+          "definition": "能精准计算数字的能力"
+        },
+        {
+          "id": "g5",
+          "name": "实验能力",
+          "definition": "拟定计划进行实验测量与分析的能力"
+        }
+      ]
+    },
+    {
+      "id": "visual",
+      "name": "视觉空间智能",
+      "indicators": [
+        {
+          "id": "v1",
+          "name": "图像能力",
+          "definition": "对平面线条、图形变化、影像画面特别敏感的能力"
+        },
+        {
+          "id": "v2",
+          "name": "色彩能力",
+          "definition": "准确清晰辨别与使用颜色、亮度与用色搭配的能力"
+        },
+        {
+          "id": "v3",
+          "name": "空间能力",
+          "definition": "准确清晰辨识方向、形体及空间结构的能力"
+        },
+        {
+          "id": "v4",
+          "name": "绘图能力",
+          "definition": "擅长用绘画表达内在想法与情绪的能力"
+        },
+        {
+          "id": "v5",
+          "name": "组砌能力",
+          "definition": "通过组合、堆砌方式呈现物体的操作能力"
+        }
+      ]
+    },
+    {
+      "id": "nature",
+      "name": "自然观察智能",
+      "indicators": [
+        {
+          "id": "n1",
+          "name": "观察能力",
+          "definition": "迅速察觉与感知自然界外在细微变化的能力"
+        },
+        {
+          "id": "n2",
+          "name": "探索能力",
+          "definition": "主动参与对自然界一切新鲜好奇事物的能力"
+        },
+        {
+          "id": "n3",
+          "name": "识别能力",
+          "definition": "清晰分辨并记忆不同生态、环境与物种差异的能力"
+        },
+        {
+          "id": "n4",
+          "name": "分类能力",
+          "definition": "精准根据物体不同特征进行条理整理与分门别类的能力"
+        },
+        {
+          "id": "n5",
+          "name": "关怀能力",
+          "definition": "发自内心对生态环境变化主动参与表达关爱的能力"
+        }
+      ]
+    },
+    {
+      "id": "music",
+      "name": "音乐智能",
+      "indicators": [
+        {
+          "id": "m1",
+          "name": "敏感能力",
+          "definition": "精准辨识节奏、音调、音色与旋律的能力"
+        },
+        {
+          "id": "m2",
+          "name": "感受能力",
+          "definition": "对歌曲音乐内在风格引发自我情绪表现的能力"
+        },
+        {
+          "id": "m3",
+          "name": "鉴赏能力",
+          "definition": "对音乐歌曲所表现的情感与风格欣赏的能力"
+        },
+        {
+          "id": "m4",
+          "name": "表现能力",
+          "definition": "正确无误唱出歌曲并能主动表现自己想法的能力"
+        },
+        {
+          "id": "m5",
+          "name": "创作能力",
+          "definition": "以不同创新方法表达音乐的能力"
+        }
+      ]
+    },
+    {
+      "id": "body",
+      "name": "肢体动觉智能",
+      "indicators": [
+        {
+          "id": "b1",
+          "name": "触感能力",
+          "definition": "皮肤感官接触外在事物的敏感程度"
+        },
+        {
+          "id": "b2",
+          "name": "反应能力",
+          "definition": "身体应对外界变化时灵活敏捷的反应能力"
+        },
+        {
+          "id": "b3",
+          "name": "平衡能力",
+          "definition": "身体维持稳定姿势并展现柔软协调敏感度的能力"
+        },
+        {
+          "id": "b4",
+          "name": "操控能力",
+          "definition": "用手感知和完成精细动作的活动能力"
+        },
+        {
+          "id": "b5",
+          "name": "律动能力",
+          "definition": "肢体掌握音乐节拍并做出有节奏优美动作的能力"
+        }
+      ]
+    },
+    {
+      "id": "social",
+      "name": "人际沟通智能",
+      "indicators": [
+        {
+          "id": "s1",
+          "name": "了解能力",
+          "definition": "对他人肢体与语言察言观色的能力"
+        },
+        {
+          "id": "s2",
+          "name": "感同能力",
+          "definition": "从他人角度理解他人情绪的能力"
+        },
+        {
+          "id": "s3",
+          "name": "领导能力",
+          "definition": "带领他人完成共同目标的能力"
+        },
+        {
+          "id": "s4",
+          "name": "协同能力",
+          "definition": "协助他人完成共同目标的能力"
+        },
+        {
+          "id": "s5",
+          "name": "沟通能力",
+          "definition": "与他人共同讨论与互动的能力"
+        }
+      ]
+    },
+    {
+      "id": "inner",
+      "name": "个人内省智能",
+      "indicators": [
+        {
+          "id": "i1",
+          "name": "洞察能力",
+          "definition": "对内对外人与事物的自我察觉能力"
+        },
+        {
+          "id": "i2",
+          "name": "反省能力",
+          "definition": "对发生的过错主动自我反省检讨的能力"
+        },
+        {
+          "id": "i3",
+          "name": "自律能力",
+          "definition": "对自我情绪、自我管理、遵守规则的能力"
+        },
+        {
+          "id": "i4",
+          "name": "同理能力",
+          "definition": "站在另一角度对发生的事情理解与包容的能力"
+        },
+        {
+          "id": "i5",
+          "name": "慈爱能力",
+          "definition": "自发对他人或他物产生慈爱与怜悯之心的能力"
+        }
+      ]
+    }
+  ],
+  "questions": [
+    {
+      "id": 1,
+      "indicator": "l1",
+      "intelligence": "lang",
+      "reverse": false,
+      "text": "阅读时能专注投入，看过一次就能掌握内容大意，甚至能复述出来"
+    },
+    {
+      "id": 2,
+      "indicator": "l1",
+      "intelligence": "lang",
+      "reverse": true,
+      "text": "对阅读提不起兴趣，一翻开书就容易分神，需要反复看才能记住"
+    },
+    {
+      "id": 3,
+      "indicator": "l2",
+      "intelligence": "lang",
+      "reverse": false,
+      "text": "表达流畅准确，喜欢发言、提问、讲故事，见人爱打招呼、话比较多"
+    },
+    {
+      "id": 4,
+      "indicator": "l2",
+      "intelligence": "lang",
+      "reverse": true,
+      "text": "话少、很少主动开口表达想法，常词不达意或说不清心里想什么"
+    },
+    {
+      "id": 5,
+      "indicator": "l3",
+      "intelligence": "lang",
+      "reverse": false,
+      "text": "喜欢涂鸦、写字、记笔记，或用文字记录想法，写字不觉得是负担"
+    },
+    {
+      "id": 6,
+      "indicator": "l3",
+      "intelligence": "lang",
+      "reverse": true,
+      "text": "排斥写字抄写，写作业慢、效率低，不愿用书写来表现自己"
+    },
+    {
+      "id": 7,
+      "indicator": "l4",
+      "intelligence": "lang",
+      "reverse": false,
+      "text": "能快速抓住文章或谈话的重点，并能用自己的话重述故事情节"
+    },
+    {
+      "id": 8,
+      "indicator": "l4",
+      "intelligence": "lang",
+      "reverse": true,
+      "text": "听过读过之后很难说出中心意思，遇到长文字理解慢、容易出错"
+    },
+    {
+      "id": 9,
+      "indicator": "l5",
+      "intelligence": "lang",
+      "reverse": false,
+      "text": "容易被故事、电影、音乐打动，会为书中人物高兴或难过、产生共情"
+    },
+    {
+      "id": 10,
+      "indicator": "l5",
+      "intelligence": "lang",
+      "reverse": true,
+      "text": "偏理性冷静，很少被文字或语言中的情感打动，读不出话里的情绪"
+    },
+    {
+      "id": 11,
+      "indicator": "g1",
+      "intelligence": "logic",
+      "reverse": false,
+      "text": "喜欢推理悬疑、策略棋类游戏，遇到问题习惯先自己动脑思考解决"
+    },
+    {
+      "id": 12,
+      "indicator": "g1",
+      "intelligence": "logic",
+      "reverse": true,
+      "text": "遇到问题先求助别人，不爱自己分析，心思单纯、不爱想问题"
+    },
+    {
+      "id": 13,
+      "indicator": "g2",
+      "intelligence": "logic",
+      "reverse": false,
+      "text": "做事条理清晰，喜欢分门别类、归纳重点、寻找因果关系和规律"
+    },
+    {
+      "id": 14,
+      "indicator": "g2",
+      "intelligence": "logic",
+      "reverse": true,
+      "text": "整理东西没有规则，说话做事没头绪，很难从杂乱中找到重点"
+    },
+    {
+      "id": 15,
+      "indicator": "g3",
+      "intelligence": "logic",
+      "reverse": false,
+      "text": "能举一反三，用学过的知识解决新问题，点子多、应变快"
+    },
+    {
+      "id": 16,
+      "indicator": "g3",
+      "intelligence": "logic",
+      "reverse": true,
+      "text": "遇到没见过的题型就手足无措，方法单一、容易钻牛角尖"
+    },
+    {
+      "id": 17,
+      "indicator": "g4",
+      "intelligence": "logic",
+      "reverse": false,
+      "text": "口算心算好，计算不易出错，对数字、时间、钱币上手快"
+    },
+    {
+      "id": 18,
+      "indicator": "g4",
+      "intelligence": "logic",
+      "reverse": true,
+      "text": "容易算错，不爱用心算，对数字和成本没什么概念"
+    },
+    {
+      "id": 19,
+      "indicator": "g5",
+      "intelligence": "logic",
+      "reverse": false,
+      "text": "喜欢动手做实验，做事有计划、踏实严谨，习惯自己动手找答案"
+    },
+    {
+      "id": 20,
+      "indicator": "g5",
+      "intelligence": "logic",
+      "reverse": true,
+      "text": "不爱动手尝试新事物，做事毛躁丢三落四，喜欢直接听结论"
+    },
+    {
+      "id": 21,
+      "indicator": "v1",
+      "intelligence": "visual",
+      "reverse": false,
+      "text": "对图形、线条、画面敏感，记地图图表比记文字容易，爱用图像帮助记忆"
+    },
+    {
+      "id": 22,
+      "indicator": "v1",
+      "intelligence": "visual",
+      "reverse": true,
+      "text": "很难察觉图形差异，看不懂图表，记住图像内容比较费力"
+    },
+    {
+      "id": 23,
+      "indicator": "v2",
+      "intelligence": "visual",
+      "reverse": false,
+      "text": "在意配色，画画爱用丰富色彩，能分辨深浅、明暗的细微差别"
+    },
+    {
+      "id": 24,
+      "indicator": "v2",
+      "intelligence": "visual",
+      "reverse": true,
+      "text": "不注重色彩搭配，画画颜色单调，常统称「黄色」而不细分鹅黄、柠檬黄"
+    },
+    {
+      "id": 25,
+      "indicator": "v3",
+      "intelligence": "visual",
+      "reverse": false,
+      "text": "方向感好、会认路，立体图形、空间结构的东西学得快"
+    },
+    {
+      "id": 26,
+      "indicator": "v3",
+      "intelligence": "visual",
+      "reverse": true,
+      "text": "立体图形转平面概念很困难，画不出立体透视感，不太关注形状结构"
+    },
+    {
+      "id": 27,
+      "indicator": "v4",
+      "intelligence": "visual",
+      "reverse": false,
+      "text": "喜欢画画，常用绘画表达想法和情绪，从小爱涂涂画画"
+    },
+    {
+      "id": 28,
+      "indicator": "v4",
+      "intelligence": "visual",
+      "reverse": true,
+      "text": "不爱画画，线条图像表现欲不强，很少主动拿起画笔"
+    },
+    {
+      "id": 29,
+      "indicator": "v5",
+      "intelligence": "visual",
+      "reverse": false,
+      "text": "喜欢乐高、拼图、模型组装，动手组合能力强"
+    },
+    {
+      "id": 30,
+      "indicator": "v5",
+      "intelligence": "visual",
+      "reverse": true,
+      "text": "对组合类玩具不感兴趣，搭出来的作品和心里想的差很远"
+    },
+    {
+      "id": 31,
+      "indicator": "n1",
+      "intelligence": "nature",
+      "reverse": false,
+      "text": "能迅速察觉环境变化，喜欢观察动植物，用五官去感知大自然"
+    },
+    {
+      "id": 32,
+      "indicator": "n1",
+      "intelligence": "nature",
+      "reverse": true,
+      "text": "对周围环境变化不敏感，不易发现图片里的细微差别"
+    },
+    {
+      "id": 33,
+      "indicator": "n2",
+      "intelligence": "nature",
+      "reverse": false,
+      "text": "好奇心重、爱东摸摸西摸摸，会主动搜集资料、刨根问底"
+    },
+    {
+      "id": 34,
+      "indicator": "n2",
+      "intelligence": "nature",
+      "reverse": true,
+      "text": "对外界不太感兴趣，学习比较被动，遇事喜欢别人直接给答案"
+    },
+    {
+      "id": 35,
+      "indicator": "n3",
+      "intelligence": "nature",
+      "reverse": false,
+      "text": "能清晰分辨不同动植物和细节差异，记忆快、做事细心"
+    },
+    {
+      "id": 36,
+      "indicator": "n3",
+      "intelligence": "nature",
+      "reverse": true,
+      "text": "常把相似的东西统称（如都叫「狗」），记不住差异，容易粗心"
+    },
+    {
+      "id": 37,
+      "indicator": "n4",
+      "intelligence": "nature",
+      "reverse": false,
+      "text": "喜欢把物品分门别类整理，能按不同标准重新归类，讲究整洁条理"
+    },
+    {
+      "id": 38,
+      "indicator": "n4",
+      "intelligence": "nature",
+      "reverse": true,
+      "text": "物品随手乱放，整理没有章法，不太在意归类和整洁"
+    },
+    {
+      "id": 39,
+      "indicator": "n5",
+      "intelligence": "nature",
+      "reverse": false,
+      "text": "关心生态环境，愿意照顾小动物和植物，喜欢参与环保、分享助人"
+    },
+    {
+      "id": 40,
+      "indicator": "n5",
+      "intelligence": "nature",
+      "reverse": true,
+      "text": "对生态环保、饲养种植不感兴趣，关注但很少付诸行动"
+    },
+    {
+      "id": 41,
+      "indicator": "m1",
+      "intelligence": "music",
+      "reverse": false,
+      "text": "对声音和音乐敏锐，能轻易分辨不同乐器声音，听过的好歌印象深刻"
+    },
+    {
+      "id": 42,
+      "indicator": "m1",
+      "intelligence": "music",
+      "reverse": true,
+      "text": "对声音音调变化没太大反应，同一首歌听很多次才留下印象"
+    },
+    {
+      "id": 43,
+      "indicator": "m2",
+      "intelligence": "music",
+      "reverse": false,
+      "text": "听音乐会跟着摆动，容易受音乐感染，能用音乐表达和抒发情绪"
+    },
+    {
+      "id": 44,
+      "indicator": "m2",
+      "intelligence": "music",
+      "reverse": true,
+      "text": "较难感受音乐里隐含的情感，很少用音乐抒发情绪"
+    },
+    {
+      "id": 45,
+      "indicator": "m3",
+      "intelligence": "music",
+      "reverse": false,
+      "text": "能分辨音乐的风格好坏，对喜欢的音乐有自己的品味和坚持"
+    },
+    {
+      "id": 46,
+      "indicator": "m3",
+      "intelligence": "music",
+      "reverse": true,
+      "text": "听什么都差不多，分辨不出风格差异，对音乐质量不太在意"
+    },
+    {
+      "id": 47,
+      "indicator": "m4",
+      "intelligence": "music",
+      "reverse": false,
+      "text": "喜欢唱歌、演奏或表演，乐意在别人面前展示音乐才艺"
+    },
+    {
+      "id": 48,
+      "indicator": "m4",
+      "intelligence": "music",
+      "reverse": true,
+      "text": "很少开口唱或当众表演音乐，对展示才艺有回避心理"
+    },
+    {
+      "id": 49,
+      "indicator": "m5",
+      "intelligence": "music",
+      "reverse": false,
+      "text": "会哼唱自编旋律、改编歌词，喜欢自己创作音乐或用不同唱法表现"
+    },
+    {
+      "id": 50,
+      "indicator": "m5",
+      "intelligence": "music",
+      "reverse": true,
+      "text": "极少自创音乐，不会改编节奏旋律，对音乐创作类游戏没兴趣"
+    },
+    {
+      "id": 51,
+      "indicator": "b1",
+      "intelligence": "body",
+      "reverse": false,
+      "text": "喜欢用手触摸物品，能分辨材质粗细，手指敏锐灵活、小肌肉发展好"
+    },
+    {
+      "id": 52,
+      "indicator": "b1",
+      "intelligence": "body",
+      "reverse": true,
+      "text": "不太在意衣物布料材质，分辨不出相似款式的质地差别"
+    },
+    {
+      "id": 53,
+      "indicator": "b2",
+      "intelligence": "body",
+      "reverse": false,
+      "text": "反应快、手眼协调好，接抛球、躲避动作灵敏"
+    },
+    {
+      "id": 54,
+      "indicator": "b2",
+      "intelligence": "body",
+      "reverse": true,
+      "text": "反应偏慢，接东西常落空，动作协调性一般"
+    },
+    {
+      "id": 55,
+      "indicator": "b3",
+      "intelligence": "body",
+      "reverse": false,
+      "text": "平衡感好，走平衡木、单脚站、骑车都稳当"
+    },
+    {
+      "id": 56,
+      "indicator": "b3",
+      "intelligence": "body",
+      "reverse": true,
+      "text": "平衡感弱，容易摔倒，跑跳动作不太稳"
+    },
+    {
+      "id": 57,
+      "indicator": "b4",
+      "intelligence": "body",
+      "reverse": false,
+      "text": "擅长操控工具器械，拍球、投掷、骑车等动作精准有力"
+    },
+    {
+      "id": 58,
+      "indicator": "b4",
+      "intelligence": "body",
+      "reverse": true,
+      "text": "操控器械比较笨拙，拍球投掷不准，精细操控弱"
+    },
+    {
+      "id": 59,
+      "indicator": "b5",
+      "intelligence": "body",
+      "reverse": false,
+      "text": "身体节奏感好，能跟着音乐节拍舞动，动作协调优美"
+    },
+    {
+      "id": 60,
+      "indicator": "b5",
+      "intelligence": "body",
+      "reverse": true,
+      "text": "跟不上节拍，跳舞动作不协调，节奏感较差"
+    },
+    {
+      "id": 61,
+      "indicator": "s1",
+      "intelligence": "social",
+      "reverse": false,
+      "text": "善于观察人，能从表情、语气、肢体动作猜出别人的情绪和心思"
+    },
+    {
+      "id": 62,
+      "indicator": "s1",
+      "intelligence": "social",
+      "reverse": true,
+      "text": "不太会察言观色，经常看不懂别人语言或动作里的暗示"
+    },
+    {
+      "id": 63,
+      "indicator": "s2",
+      "intelligence": "social",
+      "reverse": false,
+      "text": "能体会别人的感受，别人难过时自己也会跟着难受"
+    },
+    {
+      "id": 64,
+      "indicator": "s2",
+      "intelligence": "social",
+      "reverse": true,
+      "text": "较难体会他人情绪，别人伤心时自己没什么感觉"
+    },
+    {
+      "id": 65,
+      "indicator": "s3",
+      "intelligence": "social",
+      "reverse": false,
+      "text": "喜欢带头组织活动，小伙伴愿意听从安排，有号召力"
+    },
+    {
+      "id": 66,
+      "indicator": "s3",
+      "intelligence": "social",
+      "reverse": true,
+      "text": "不愿出头、不喜组织，遇到事情习惯跟随别人"
+    },
+    {
+      "id": 67,
+      "indicator": "s4",
+      "intelligence": "social",
+      "reverse": false,
+      "text": "在团体中配合度高，愿意分工合作，和同伴相处融洽"
+    },
+    {
+      "id": 68,
+      "indicator": "s4",
+      "intelligence": "social",
+      "reverse": true,
+      "text": "团体活动里常游离在外，不愿配合分工，容易起冲突"
+    },
+    {
+      "id": 69,
+      "indicator": "s5",
+      "intelligence": "social",
+      "reverse": false,
+      "text": "会说话、懂礼貌，能清楚表达并说服别人，交朋友容易"
+    },
+    {
+      "id": 70,
+      "indicator": "s5",
+      "intelligence": "social",
+      "reverse": true,
+      "text": "沟通不畅，表达不清意图，和别人打交道容易产生误解"
+    },
+    {
+      "id": 71,
+      "indicator": "i1",
+      "intelligence": "inner",
+      "reverse": false,
+      "text": "清楚自己的优点缺点，明白自己的想法和目标，知道自己要什么"
+    },
+    {
+      "id": 72,
+      "indicator": "i1",
+      "intelligence": "inner",
+      "reverse": true,
+      "text": "不太了解自己，说不清自己的感受，容易人云亦云"
+    },
+    {
+      "id": 73,
+      "indicator": "i2",
+      "intelligence": "inner",
+      "reverse": false,
+      "text": "做错事会自我反思，能从经验中吸取教训、改进自己"
+    },
+    {
+      "id": 74,
+      "indicator": "i2",
+      "intelligence": "inner",
+      "reverse": true,
+      "text": "犯错后很少反省，容易觉得是别人的问题"
+    },
+    {
+      "id": 75,
+      "indicator": "i3",
+      "intelligence": "inner",
+      "reverse": false,
+      "text": "自律有恒心，能管住自己，按计划完成该做的事"
+    },
+    {
+      "id": 76,
+      "indicator": "i3",
+      "intelligence": "inner",
+      "reverse": true,
+      "text": "做事三分钟热度，需要人盯着才做，管不住自己"
+    },
+    {
+      "id": 77,
+      "indicator": "i4",
+      "intelligence": "inner",
+      "reverse": false,
+      "text": "能站在别人角度看问题，体谅他人的处境"
+    },
+    {
+      "id": 78,
+      "indicator": "i4",
+      "intelligence": "inner",
+      "reverse": true,
+      "text": "较难换位思考，常只从自己的角度看问题"
+    },
+    {
+      "id": 79,
+      "indicator": "i5",
+      "intelligence": "inner",
+      "reverse": false,
+      "text": "有爱心、愿意分享和帮助弱小，对人对事宽容温和"
+    },
+    {
+      "id": 80,
+      "indicator": "i5",
+      "intelligence": "inner",
+      "reverse": true,
+      "text": "对他人遭遇偏理性分析，不太热衷公益，很少主动付出"
+    }
+  ]
+}
