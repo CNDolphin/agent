@@ -10,7 +10,7 @@ from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_data_files
 
-ROOT = Path(SPECPATH).resolve().parents[2]  # packaging/windows/ -> 仓库根
+ROOT = Path(SPECPATH).resolve().parents[1]  # packaging/windows/ -> 仓库根
 
 datas = [
     (str(ROOT / "client" / "web" / "dist"), "client/web/dist"),
