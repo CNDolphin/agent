@@ -3,8 +3,8 @@ Host: 0.0.0.0
 Port: 8899
 # SSE 长连接需要,关闭 go-zero 默认 3s 的整体超时;各普通接口依赖客户端侧超时兜底
 Timeout: 0
-# 报告/内容包上传上限 64MB,logic 内再按各自 MaxSizeMB 二次校验
-MaxBytes: 67108864
+# 报告/内容包上传上限 256MB,logic 内再按各自 MaxSizeMB 二次校验
+MaxBytes: 268435456
 Env: dev
 Log:
   Level: info
@@ -74,3 +74,4 @@ Reports:
 Content:
   Dir: ./data/content
   MaxSizeMB: 50
+  AppMaxSizeMB: 200

@@ -63,11 +63,12 @@ export function ContentPage() {
   const [editorOpen, setEditorOpen] = useState(false)
   const [kind, setKind] = useState<ContentKind>('skills')
   const [version, setVersion] = useState('')
-  const [platform, setPlatform] = useState('macos')
+  const [platform, setPlatform] = useState('windows')
   const [notes, setNotes] = useState('')
   const [forced, setForced] = useState(false)
   const [fileList, setFileList] = useState<UploadFile[]>([])
   const [submitting, setSubmitting] = useState(false)
+  const [downloadingId, setDownloadingId] = useState<number | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -93,10 +94,12 @@ export function ContentPage() {
 
   const reload = () => setReloadKey((value) => value + 1)
 
+  const windowsApp = kind === 'app' && platform === 'windows'
+
   const openEditor = () => {
     setKind('skills')
     setVersion('')
-    setPlatform('macos')
+    setPlatform('windows')
     setNotes('')
     setForced(false)
     setFileList([])
@@ -106,7 +109,16 @@ export function ContentPage() {
   const submit = async () => {
     const file = fileList[0]?.originFileObj as File | undefined
     if (!file) {
-      message.warning('请选择内容包 zip 文件')
+      message.warning(windowsApp ? '请选择 exe 安装包' : '请选择内容包 zip 文件')
+      return
+    }
+    if (windowsApp) {
+      if (!file.name.toLowerCase().endsWith('.exe')) {
+        message.warning('Windows 客户端程序需上传 .exe 安装包')
+        return
+      }
+    } else if (!file.name.toLowerCase().endsWith('.zip')) {
+      message.warning('请上传 zip 内容包')
       return
     }
     if (!/^\d+\.\d+\.\d+$/.test(version.trim())) {
@@ -153,11 +165,17 @@ export function ContentPage() {
   }
 
   const handleDownload = async (record: ContentItem) => {
+    if (downloadingId !== null) return
+    setDownloadingId(record.id)
+    const hideLoading = message.loading(`正在下载 ${record.filename}…`, 0)
     try {
       await downloadContent(record.id, record.filename)
-      message.success('已开始下载')
+      message.success('已开始下载,请在浏览器下载记录中查看')
     } catch (err) {
       message.error(err instanceof ApiError ? err.message : '下载失败')
+    } finally {
+      hideLoading()
+      setDownloadingId(null)
     }
   }
 
@@ -205,7 +223,13 @@ export function ContentPage() {
       width: 200,
       render: (_: unknown, record) => (
         <Space size={4} wrap>
-          <Button type="link" size="small" onClick={() => void handleDownload(record)}>
+          <Button
+            type="link"
+            size="small"
+            loading={downloadingId === record.id}
+            disabled={downloadingId !== null && downloadingId !== record.id}
+            onClick={() => void handleDownload(record)}
+          >
             下载
           </Button>
           <Button
@@ -253,7 +277,7 @@ export function ContentPage() {
       <Alert
         type="info"
         showIcon
-        title="内容包需为 zip，根目录包含 manifest.json（kind、version、files[].path/sha256）。客户端仅提示更新，由用户手动确认下载。"
+        title="内容包需为 zip，根目录包含 manifest.json（kind、version、files[].path/sha256）；Windows 客户端程序上传 .exe（≤200MB），macOS 程序包仍为 zip。客户端仅提示更新，由用户手动确认下载。"
       />
 
       <Space wrap>
@@ -316,7 +340,11 @@ export function ContentPage() {
           <Select
             style={{ width: '100%' }}
             value={kind}
-            onChange={(value) => setKind(value)}
+            onChange={(value) => {
+              setKind(value)
+              setFileList([])
+              if (value === 'app' && platform !== 'macos') setPlatform('windows')
+            }}
             options={KIND_OPTIONS}
           />
           <Typography.Text>版本号</Typography.Text>
@@ -331,11 +359,13 @@ export function ContentPage() {
               <Select
                 style={{ width: '100%' }}
                 value={platform}
-                onChange={(value) => setPlatform(value)}
+                onChange={(value) => {
+                  setPlatform(value)
+                  setFileList([])
+                }}
                 options={[
-                  { value: 'macos', label: 'macOS' },
                   { value: 'windows', label: 'Windows' },
-                  { value: 'all', label: '全平台' },
+                  { value: 'macos', label: 'macOS' },
                 ]}
               />
             </>
@@ -357,10 +387,14 @@ export function ContentPage() {
             fileList={fileList}
             beforeUpload={() => false}
             onChange={({ fileList: next }) => setFileList(next.slice(-1))}
-            accept=".zip"
+            accept={windowsApp ? '.exe' : '.zip'}
           >
-            <p style={{ margin: 0 }}>点击或拖拽 zip 到此处</p>
-            <p style={{ margin: 0, color: '#999' }}>客户端程序包不超过 50MB</p>
+            <p style={{ margin: 0 }}>
+              {windowsApp ? '点击或拖拽 exe 到此处' : '点击或拖拽 zip 到此处'}
+            </p>
+            <p style={{ margin: 0, color: '#999' }}>
+              {windowsApp ? 'Windows 客户端程序不超过 200MB' : '内容包不超过 50MB'}
+            </p>
           </Upload.Dragger>
         </Space>
       </Modal>

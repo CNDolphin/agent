@@ -178,8 +178,13 @@ export async function downloadFile(
   const anchor = document.createElement('a')
   anchor.href = objectUrl
   anchor.download = filename
+  anchor.rel = 'noopener'
+  anchor.style.display = 'none'
   document.body.appendChild(anchor)
   anchor.click()
-  anchor.remove()
-  URL.revokeObjectURL(objectUrl)
+  // 立即回收会让 Safari 及大文件下载被取消,延迟释放并移除锚点。
+  window.setTimeout(() => {
+    anchor.remove()
+    URL.revokeObjectURL(objectUrl)
+  }, 60_000)
 }

@@ -116,8 +116,9 @@ type ReportsConf struct {
 
 // ContentConf 在线更新内容包存储配置。
 type ContentConf struct {
-	Dir       string `json:",default=./data/content"`
-	MaxSizeMB int64  `json:",default=50"`
+	Dir          string `json:",default=./data/content"`
+	MaxSizeMB    int64  `json:",default=50"`
+	AppMaxSizeMB int64  `json:",default=200"`
 }
 
 // Config 服务总配置。
@@ -254,6 +255,9 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Content.MaxSizeMB <= 0 {
 		c.Content.MaxSizeMB = 50
+	}
+	if c.Content.AppMaxSizeMB <= 0 {
+		c.Content.AppMaxSizeMB = 200
 	}
 	if c.Env == "" {
 		c.Env = "dev"

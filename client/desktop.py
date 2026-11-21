@@ -12,12 +12,14 @@
 from __future__ import annotations
 
 import argparse
+import os
 import secrets
 import socket
 import sys
 import threading
 import time
 import webbrowser
+from pathlib import Path
 
 import httpx
 import uvicorn
@@ -28,6 +30,26 @@ from main import load_config
 
 DEV_PORT = 8770
 DEV_UI_URL = "http://127.0.0.1:5198"
+
+
+def _ensure_standard_streams() -> None:
+    """窗口化打包(console=False)下 sys.stdout/stderr 为 None。
+
+    uvicorn 初始化日志时会调用 ``sys.stdout.isatty()``,流为 None 会直接崩溃,
+    因此这里把缺失的流重定向到 ``~/.mhagent/desktop.log``(不可写时退回空设备)。
+    """
+    if sys.stdout is not None and sys.stderr is not None:
+        return
+    try:
+        log_dir = Path.home() / ".mhagent"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        stream = open(log_dir / "desktop.log", "a", encoding="utf-8", buffering=1)
+    except OSError:
+        stream = open(os.devnull, "w", encoding="utf-8")
+    if sys.stdout is None:
+        sys.stdout = stream
+    if sys.stderr is None:
+        sys.stderr = stream
 
 
 def free_port() -> int:
@@ -66,6 +88,7 @@ def wait_until_ready(base_url: str, token: str, timeout: float = 20.0) -> None:
 
 
 def main(argv=None) -> int:
+    _ensure_standard_streams()
     parser = argparse.ArgumentParser(description="本地心理助手桌面客户端")
     parser.add_argument("--config", default="config.yaml", help="配置文件路径")
     parser.add_argument("--data-dir", default=None, help="本地数据目录(覆盖配置)")

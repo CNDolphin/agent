@@ -144,7 +144,11 @@ func ContentDownload(sc *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		defer f.File.Close()
-		w.Header().Set("Content-Type", "application/zip")
+		contentType := f.Item.ContentType
+		if contentType == "" {
+			contentType = "application/octet-stream"
+		}
+		w.Header().Set("Content-Type", contentType)
 		w.Header().Set("Content-Length", strconv.FormatInt(f.Item.SizeBytes, 10))
 		w.Header().Set("Content-Disposition",
 			"attachment; filename*=UTF-8''"+url.PathEscape(f.Item.Filename))

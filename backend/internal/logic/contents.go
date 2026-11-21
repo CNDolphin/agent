@@ -132,18 +132,24 @@ func (l *ContentLogic) PublishContent(ctx context.Context, in ContentUploadInput
 		return ContentItem{}, apierr.BadRequest("kind 非法,可选 skills/quiz/rules/scales/app")
 	}
 	platform := strings.TrimSpace(in.Platform)
-	if platform == "" {
-		platform = "all"
-	}
-	if !contentPlatforms[platform] {
-		return ContentItem{}, apierr.BadRequest("platform 非法,可选 all/macos/windows")
-	}
-	if kind != KindApp {
+	if kind == KindApp {
+		if platform == "" {
+			platform = "windows"
+		}
+		if platform != "windows" && platform != "macos" {
+			return ContentItem{}, apierr.BadRequest("客户端程序必须选择 windows 或 macos 平台")
+		}
+	} else {
 		platform = "all"
 	}
 	version := strings.TrimSpace(in.Version)
 	if !contentVersionPattern.MatchString(version) {
 		return ContentItem{}, apierr.BadRequest("version 必须是 x.y.z 形式的版本号")
+	}
+	isWindowsApp := kind == KindApp && platform == "windows"
+	filename := strings.TrimSpace(in.Filename)
+	if isWindowsApp && !strings.EqualFold(filepath.Ext(filename), ".exe") {
+		return ContentItem{}, apierr.BadRequest("客户端程序必须上传 .exe 文件")
 	}
 
 	var exists int
@@ -160,7 +166,11 @@ func (l *ContentLogic) PublishContent(ctx context.Context, in ContentUploadInput
 	if err := os.MkdirAll(absDir, 0o700); err != nil {
 		return ContentItem{}, apierr.Internal()
 	}
-	tmp, err := os.CreateTemp(absDir, ".upload-*.zip")
+	tmpPattern := ".upload-*.zip"
+	if isWindowsApp {
+		tmpPattern = ".upload-*.exe"
+	}
+	tmp, err := os.CreateTemp(absDir, tmpPattern)
 	if err != nil {
 		return ContentItem{}, apierr.Internal()
 	}
@@ -171,23 +181,34 @@ func (l *ContentLogic) PublishContent(ctx context.Context, in ContentUploadInput
 	}()
 
 	hasher := sha256.New()
-	limit := l.maxBytes()
+	limit := l.maxBytes(kind)
 	n, copyErr := io.Copy(io.MultiWriter(tmp, hasher), io.LimitReader(in.Body, limit+1))
 	if copyErr != nil {
 		return ContentItem{}, apierr.Internal()
 	}
 	if n > limit {
-		return ContentItem{}, apierr.BadRequest(fmt.Sprintf("内容包超过大小限制(%dMB)", l.sc.Config.Content.MaxSizeMB))
+		return ContentItem{}, apierr.BadRequest(fmt.Sprintf("内容包超过大小限制(%dMB)", limit>>20))
 	}
 	if err := tmp.Sync(); err != nil {
 		return ContentItem{}, apierr.Internal()
 	}
-
-	if err := inspectManifest(tmpPath, n, kind, version); err != nil {
-		return ContentItem{}, err
+	if isWindowsApp {
+		if err := verifyExe(tmp); err != nil {
+			return ContentItem{}, err
+		}
 	}
 
-	name := fmt.Sprintf("%s-%s.zip", version, uuid.NewString())
+	if !isWindowsApp {
+		if err := inspectManifest(tmpPath, n, kind, version); err != nil {
+			return ContentItem{}, err
+		}
+	}
+
+	ext := ".zip"
+	if isWindowsApp {
+		ext = ".exe"
+	}
+	name := fmt.Sprintf("%s-%s%s", version, uuid.NewString(), ext)
 	relPath := filepath.Join(relDir, name)
 	target := filepath.Join(l.sc.Config.Content.Dir, relPath)
 	if err := os.Rename(tmpPath, target); err != nil {
@@ -195,13 +216,14 @@ func (l *ContentLogic) PublishContent(ctx context.Context, in ContentUploadInput
 	}
 
 	digest := hex.EncodeToString(hasher.Sum(nil))
-	filename := strings.TrimSpace(in.Filename)
 	if filename == "" {
 		filename = name
 	}
 	now := l.sc.Now().UTC()
 	contentType := strings.TrimSpace(in.ContentType)
-	if contentType == "" {
+	if isWindowsApp {
+		contentType = "application/vnd.microsoft.portable-executable"
+	} else if contentType == "" {
 		contentType = "application/zip"
 	}
 
@@ -399,8 +421,26 @@ func (l *ContentLogic) DownloadContent(ctx context.Context, id int64) (ContentFi
 
 // ---- 内部实现 ----
 
-func (l *ContentLogic) maxBytes() int64 {
+func (l *ContentLogic) maxBytes(kind string) int64 {
+	if kind == KindApp {
+		return l.sc.Config.Content.AppMaxSizeMB << 20
+	}
 	return l.sc.Config.Content.MaxSizeMB << 20
+}
+
+// verifyExe 校验 Windows 安装包的文件头,避免上传改名的其它文件。
+func verifyExe(f *os.File) error {
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return apierr.Internal()
+	}
+	header := make([]byte, 2)
+	if _, err := io.ReadFull(f, header); err != nil {
+		return apierr.BadRequest("exe 文件头不合法")
+	}
+	if header[0] != 'M' || header[1] != 'Z' {
+		return apierr.BadRequest("exe 文件头不合法")
+	}
+	return nil
 }
 
 func (l *ContentLogic) contentItem(ctx context.Context, id int64) (ContentItem, error) {

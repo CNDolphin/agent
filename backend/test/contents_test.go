@@ -68,6 +68,13 @@ func buildContentZip(t *testing.T, kind, version string, files map[string][]byte
 
 func uploadContent(t *testing.T, base, token, kind, version, platform string, content []byte) apiResp {
 	t.Helper()
+	return uploadContentFile(t, base, token, kind, version, platform, kind+"-"+version+".zip", content)
+}
+
+func uploadContentFile(
+	t *testing.T, base, token, kind, version, platform, filename string, content []byte,
+) apiResp {
+	t.Helper()
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
 	_ = mw.WriteField("kind", kind)
@@ -76,7 +83,7 @@ func uploadContent(t *testing.T, base, token, kind, version, platform string, co
 		_ = mw.WriteField("platform", platform)
 	}
 	_ = mw.WriteField("notes", "测试内容包")
-	fw, err := mw.CreateFormFile("file", kind+"-"+version+".zip")
+	fw, err := mw.CreateFormFile("file", filename)
 	if err != nil {
 		t.Fatalf("构造文件字段失败: %v", err)
 	}
@@ -160,6 +167,47 @@ func TestContentPublishLatestDownload(t *testing.T) {
 	}
 }
 
+func TestContentPublishAppExe(t *testing.T) {
+	env := testenv.New(t)
+	base := testenv.StartServer(t, env)
+
+	insertAdmin(t, env.DB, "root", "super", "Passw0rd!x")
+	adminToken, _ := adminLogin(t, base, "root", "Passw0rd!x")
+
+	exe := append([]byte("MZ\x90\x00"), bytes.Repeat([]byte{0}, 128)...)
+	resp := uploadContentFile(
+		t, base, adminToken, "app", "0.2.0", "windows", "agent-setup-0.2.0.exe", exe)
+	resp.expect(t, http.StatusOK)
+	item := resp.mapBody(t)
+	if item["filename"].(string) != "agent-setup-0.2.0.exe" {
+		t.Fatalf("应保留原始 exe 文件名,实际 %v", item["filename"])
+	}
+	if item["platform"].(string) != "windows" {
+		t.Fatalf("平台应为 windows,实际 %v", item["platform"])
+	}
+	expectedType := "application/vnd.microsoft.portable-executable"
+	if item["content_type"].(string) != expectedType {
+		t.Fatalf("content_type 应为 %s,实际 %v", expectedType, item["content_type"])
+	}
+	sum := sha256.Sum256(exe)
+	if item["sha256"].(string) != hex.EncodeToString(sum[:]) {
+		t.Fatalf("SHA256 不一致")
+	}
+	if int64(item["size_bytes"].(float64)) != int64(len(exe)) {
+		t.Fatalf("size_bytes 不一致")
+	}
+
+	id := int64(item["id"].(float64))
+	resp = do(t, http.MethodGet, base+"/admin/contents/"+itoa(id)+"/download", nil, adminToken, nil)
+	resp.expect(t, http.StatusOK)
+	if resp.header.Get("Content-Type") != expectedType {
+		t.Fatalf("下载 Content-Type 应为 %s,实际 %s", expectedType, resp.header.Get("Content-Type"))
+	}
+	if !bytes.Equal(resp.body, exe) {
+		t.Fatalf("下载内容与上传 exe 不一致")
+	}
+}
+
 func TestContentPublishRejects(t *testing.T) {
 	env := testenv.New(t)
 	base := testenv.StartServer(t, env)
@@ -198,6 +246,20 @@ func TestContentPublishRejects(t *testing.T) {
 
 	// 非法版本号。
 	resp = uploadContent(t, base, superToken, "skills", "v2", "all", content)
+	resp.expect(t, http.StatusBadRequest)
+
+	// Windows 客户端程序只接受 exe 扩展名。
+	resp = uploadContent(t, base, superToken, "app", "0.2.0", "windows", content)
+	resp.expect(t, http.StatusBadRequest)
+
+	// exe 扩展名但文件头不是 MZ。
+	resp = uploadContentFile(
+		t, base, superToken, "app", "0.3.0", "windows", "agent-setup.exe", []byte("PK\x03\x04"))
+	resp.expect(t, http.StatusBadRequest)
+
+	// app 不允许 all 平台。
+	resp = uploadContentFile(
+		t, base, superToken, "app", "0.4.0", "all", "agent-setup.exe", []byte("MZ\x90\x00"))
 	resp.expect(t, http.StatusBadRequest)
 }
 

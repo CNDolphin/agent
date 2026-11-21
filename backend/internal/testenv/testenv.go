@@ -92,6 +92,9 @@ func New(t *testing.T, opts ...Option) *Env {
 	if cfg.Content.MaxSizeMB <= 0 {
 		cfg.Content.MaxSizeMB = 50
 	}
+	if cfg.Content.AppMaxSizeMB <= 0 {
+		cfg.Content.AppMaxSizeMB = 200
+	}
 	secrets := config.Secrets{
 		JWTSecret:          "test-jwt-secret",
 		AdminJWTSecret:     "test-admin-secret",
