@@ -1,8 +1,8 @@
-import { expect, it } from 'vitest'
+import { afterEach, expect, it } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
-import { MAIN_PROFILE, makeProfile, setMockState } from '../test/handlers'
+import { MAIN_PROFILE, getOpenSettingsCalls, makeProfile, setMockState } from '../test/handlers'
 import type { MockReport } from '../test/handlers'
 import { renderApp } from '../test/renderApp'
 
@@ -347,4 +347,82 @@ it('局域网设备不展示我的报告入口', async () => {
 
   expect(await screen.findByRole('heading', { name: '对话支持' })).toBeInTheDocument()
   expect(screen.queryByRole('heading', { name: '我的报告' })).not.toBeInTheDocument()
+})
+
+/** 浏览器原生语音识别的测试替身:start 时立即回传一段临时转写或指定错误。 */
+class FakeRecognition {
+  static errorCode = ''
+  lang = ''
+  continuous = false
+  interimResults = false
+  onresult: ((event: unknown) => void) | null = null
+  onerror: ((event: unknown) => void) | null = null
+  onend: (() => void) | null = null
+
+  start() {
+    if (FakeRecognition.errorCode) {
+      this.onerror?.({ error: FakeRecognition.errorCode })
+      return
+    }
+    const result = Object.assign([{ transcript: '我最近睡不好' }], {
+      isFinal: false,
+      length: 1,
+    })
+    this.onresult?.({ resultIndex: 0, results: Object.assign([result], { length: 1 }) })
+  }
+
+  stop() {
+    this.onend?.()
+  }
+
+  abort() {}
+}
+
+function setFakeRecognition(errorCode = '') {
+  FakeRecognition.errorCode = errorCode
+  ;(window as unknown as { SpeechRecognition?: unknown }).SpeechRecognition = FakeRecognition
+}
+
+afterEach(() => {
+  FakeRecognition.errorCode = ''
+  delete (window as unknown as { SpeechRecognition?: unknown }).SpeechRecognition
+  delete (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition
+})
+
+it('对话页支持语音输入并回填转写文字', async () => {
+  const user = userEvent.setup()
+  readyState()
+  setFakeRecognition()
+  renderApp('/')
+
+  const input = await screen.findByLabelText('消息输入')
+  await user.click(screen.getByRole('button', { name: '语音输入' }))
+
+  await waitFor(() => expect(input).toHaveValue('我最近睡不好'))
+  expect(screen.getByRole('button', { name: '停止语音输入' })).toHaveTextContent('停止听写')
+})
+
+it('浏览器不支持语音识别时不显示语音输入按钮', async () => {
+  readyState()
+  renderApp('/')
+
+  expect(await screen.findByLabelText('消息输入')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: '语音输入' })).not.toBeInTheDocument()
+})
+
+it('麦克风权限被拒时可一键打开系统设置', async () => {
+  const user = userEvent.setup()
+  readyState()
+  setFakeRecognition('not-allowed')
+  renderApp('/')
+
+  await screen.findByLabelText('消息输入')
+  await user.click(screen.getByRole('button', { name: '语音输入' }))
+
+  expect(await screen.findByText(/麦克风权限被拒绝/)).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: '打开设置' }))
+
+  expect(await screen.findByText(/已打开系统设置/)).toBeInTheDocument()
+  expect(screen.getByText(/「终端」/)).toBeInTheDocument()
+  expect(getOpenSettingsCalls()).toBe(1)
 })

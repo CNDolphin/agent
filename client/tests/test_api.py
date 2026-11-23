@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -413,6 +415,35 @@ def test_crisis_endpoint(tmp_path):
     assert {item["number"] for item in body["hotlines"]} == {"12356", "120"}
     assert "12356" in body["copy_text"]
     manager.close()
+
+
+def test_open_microphone_settings_desktop_only(tmp_path, monkeypatch):
+    client, manager = build(tmp_path)
+    calls: list[list[str]] = []
+    monkeypatch.setattr("client.app.subprocess.run", lambda args, **kwargs: calls.append(args))
+
+    response = client.post("/api/system/open-microphone-settings", headers=TOKEN_HEADER)
+    if sys.platform.startswith(("darwin", "win")):
+        assert response.status_code == 200
+        assert response.json()["ok"] is True
+        assert "host_app" in response.json()
+        assert calls, "应调用系统命令打开设置"
+    else:
+        assert response.status_code == 501
+
+    lan, lan_manager = lan_client(tmp_path / "lan")
+    lan_manager.create_profile("孩子", "kid_01", "password-1")
+    device_token = lan.post(
+        "/api/device/login", json={"username": "kid_01", "password": "password-1"}
+    ).json()["device_token"]
+    denied = lan.post(
+        "/api/system/open-microphone-settings",
+        headers={"X-Device-Token": device_token},
+    )
+    assert denied.status_code == 403
+    assert denied.json()["code"] == "desktop_only"
+    manager.close()
+    lan_manager.close()
 
 
 def test_legacy_migrate_route(tmp_path):

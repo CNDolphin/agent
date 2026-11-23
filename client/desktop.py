@@ -161,12 +161,41 @@ def main(argv=None) -> int:
     return 0
 
 
+def _enable_media_capture_permission() -> None:
+    """放行页面发起的麦克风请求。
+
+    pywebview 的 macOS 后端没有实现 WKUIDelegate 的媒体采集授权回调,
+    WKWebView 默认拒绝,导致语音识别直接报 not-allowed 且系统里不会出现授权记录。
+    这里替换其委托类,对页面请求统一返回 Grant,随后由系统弹出麦克风授权。
+    """
+    if sys.platform != "darwin":
+        return
+    try:
+        from webview.platforms import cocoa
+    except Exception:
+        return
+    if getattr(cocoa.BrowserView, "_mhagent_media_capture_patched", False):
+        return
+
+    webkit = cocoa.WebKit
+
+    class MediaCaptureDelegate(cocoa.BrowserView.BrowserDelegate):
+        def webView_requestMediaCapturePermissionForOrigin_initiatedByFrame_decisionHandler_(
+            self, webview, origin, frame, handler
+        ):
+            handler(webkit.WKPermissionDecisionGrant)
+
+    cocoa.BrowserView.BrowserDelegate = MediaCaptureDelegate
+    cocoa.BrowserView._mhagent_media_capture_patched = True
+
+
 def _start_native_window(url: str, title: str, width: int, height: int) -> bool:
     try:
         import webview
     except Exception:
         print("未安装 pywebview,改用浏览器打开(可执行 pip install pywebview)。", file=sys.stderr)
         return False
+    _enable_media_capture_permission()
     window = webview.create_window(
         title,
         url,

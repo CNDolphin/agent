@@ -13,6 +13,9 @@ from __future__ import annotations
 import base64
 import binascii
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 from fastapi import Body, FastAPI, Query, Request
@@ -81,6 +84,49 @@ def _client_host(request: Request) -> str:
 
 def _is_loopback(request: Request) -> bool:
     return _client_host(request) in LOOPBACK_HOSTS
+
+
+def _microphone_settings_command() -> list[str] | None:
+    """返回打开系统麦克风权限页的命令;不支持的平台返回 None。"""
+    if sys.platform == "darwin":
+        return [
+            "open",
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone",
+        ]
+    if sys.platform.startswith("win"):
+        return ["cmd", "/c", "start", "", "ms-settings:privacy-microphone"]
+    return None
+
+
+_TERMINAL_APPS = {
+    "com.apple.Terminal": "终端",
+    "com.googlecode.iterm2": "iTerm",
+    "dev.warp.Warp-Stable": "Warp",
+    "com.mitchellh.ghostty": "Ghostty",
+    "com.microsoft.VSCode": "Visual Studio Code",
+    "com.apple.dt.Xcode": "Xcode",
+}
+
+
+def _launch_host_app() -> str | None:
+    """返回启动本应用的宿主应用名称(macOS)。
+
+    macOS 的隐私授权记在「负责进程」名下:从终端启动脚本时,麦克风权限属于终端本身,
+    而不是本程序,提示文案需要给出真实的应用名。
+    """
+    if sys.platform != "darwin":
+        return None
+    parts = Path(sys.executable).parts
+    if ".app" in parts:
+        index = parts.index(".app")
+        if index > 0:
+            return Path(parts[index - 1]).name
+    bundle = os.environ.get("__CFBundleIdentifier", "")
+    if bundle in _TERMINAL_APPS:
+        return _TERMINAL_APPS[bundle]
+    if "trae" in bundle.lower():
+        return "Trae"
+    return None
 
 
 def create_app(manager: RuntimeManager, local_token: str, dev_mode: bool = False) -> FastAPI:
@@ -267,6 +313,29 @@ def create_app(manager: RuntimeManager, local_token: str, dev_mode: bool = False
     @app.get("/api/health")
     def health():
         return {"ok": True, "lan_enabled": manager.lan_enabled}
+
+    # ---- 系统设置 ----
+    @app.post("/api/system/open-microphone-settings")
+    def open_microphone_settings(request: Request):
+        denied = desktop_only(request)
+        if denied is not None:
+            return denied
+        command = _microphone_settings_command()
+        if command is None:
+            return _json(
+                501,
+                "unsupported_platform",
+                "当前系统不支持自动打开设置,请手动前往系统设置的麦克风权限页",
+            )
+        try:
+            subprocess.run(command, check=True, timeout=10)
+        except (OSError, subprocess.SubprocessError):
+            return _json(
+                500,
+                "open_failed",
+                "无法自动打开系统设置,请手动前往 系统设置 > 隐私与安全性 > 麦克风",
+            )
+        return {"ok": True, "host_app": _launch_host_app()}
 
     @app.get("/api/dev-token")
     def dev_token(request: Request):

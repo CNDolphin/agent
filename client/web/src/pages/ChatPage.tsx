@@ -1,9 +1,10 @@
-import { Alert, Button, Card, Input, Space, Tag, Typography } from 'antd'
+import { Alert, Button, Card, Input, Space, Tag, Tooltip, Typography } from 'antd'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { ApiError, api, errorMessage } from '../api'
 import { CrisisCard } from '../components/CrisisCard'
+import { useSpeechRecognition } from '../voice'
 import type {
   ChatReply,
   CreditBalance,
@@ -33,7 +34,23 @@ export function ChatPage() {
   const [crisis, setCrisis] = useState(false)
   const [balance, setBalance] = useState<CreditBalance | null>(null)
   const [error, setError] = useState('')
+  const [voiceError, setVoiceError] = useState<{ message: string; code: string } | null>(null)
+  const [voiceNotice, setVoiceNotice] = useState('')
+  const [openingSettings, setOpeningSettings] = useState(false)
   const bottomRef = useRef<HTMLDivElement | null>(null)
+  // 本轮听写开始前的已有文本,语音转写结果追加在它后面。
+  const voicePrefixRef = useRef('')
+
+  const speech = useSpeechRecognition({
+    onTranscript: (transcript) => {
+      setInput(`${voicePrefixRef.current}${transcript}`)
+    },
+    onError: (message, code) => setVoiceError({ message, code }),
+  })
+
+  const needsSettings =
+    voiceError !== null &&
+    (voiceError.code === 'not-allowed' || voiceError.code === 'service-not-allowed')
 
   const goOnboarding = useCallback(() => {
     navigate('/onboarding', { replace: true })
@@ -109,9 +126,42 @@ export function ChatPage() {
     }
   }
 
+  function toggleVoice() {
+    if (speech.listening) {
+      speech.stop()
+      return
+    }
+    setVoiceError(null)
+    setVoiceNotice('')
+    voicePrefixRef.current = input
+    speech.start()
+  }
+
+  async function openMicSettings() {
+    setOpeningSettings(true)
+    try {
+      const result = await api.post<{ ok: boolean; host_app?: string | null }>(
+        '/system/open-microphone-settings',
+      )
+      const host = result.host_app
+      setVoiceError(null)
+      setVoiceNotice(
+        host
+          ? `已打开系统设置。macOS 把麦克风权限记在启动本应用的「${host}」名下,请勾选它;如果列表里没有,请再点一次「语音输入」触发授权弹窗,授权后重启应用。`
+          : '已打开系统设置,请在麦克风列表中勾选启动本应用的终端程序;如果列表里没有,请再点一次「语音输入」触发授权弹窗,授权后重启应用。',
+      )
+    } catch (err) {
+      setVoiceError({ message: errorMessage(err), code: 'open_failed' })
+    } finally {
+      setOpeningSettings(false)
+    }
+  }
+
   async function send() {
     const text = input.trim()
     if (!text || sending) return
+    speech.stop()
+    setVoiceNotice('')
     setMessages((items) => [...items, { role: 'user', text }])
     setInput('')
     setSending(true)
@@ -191,6 +241,21 @@ export function ChatPage() {
       </Typography.Text>
       {crisis && <CrisisCard />}
       {error && <Alert type="error" showIcon message={error} />}
+      {voiceError && (
+        <Alert
+          type="warning"
+          showIcon
+          message={voiceError.message}
+          action={
+            needsSettings ? (
+              <Button size="small" loading={openingSettings} onClick={() => void openMicSettings()}>
+                打开设置
+              </Button>
+            ) : undefined
+          }
+        />
+      )}
+      {voiceNotice && <Alert type="info" showIcon message={voiceNotice} />}
 
       <div className="chat-body">
         {messages.map((message, index) => (
@@ -220,6 +285,17 @@ export function ChatPage() {
             }
           }}
         />
+        {speech.supported && (
+          <Tooltip title="语音识别由浏览器提供,可能需要联网">
+            <Button
+              aria-label={speech.listening ? '停止语音输入' : '语音输入'}
+              danger={speech.listening}
+              onClick={toggleVoice}
+            >
+              {speech.listening ? '停止听写' : '语音输入'}
+            </Button>
+          </Tooltip>
+        )}
         <Button type="primary" loading={sending} onClick={() => void send()}>
           发送
         </Button>

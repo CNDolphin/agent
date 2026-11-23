@@ -116,9 +116,15 @@ function createState(): MockState {
 }
 
 let state = createState()
+let openSettingsCalls = 0
+
+export function getOpenSettingsCalls(): number {
+  return openSettingsCalls
+}
 
 export function resetMockData(): void {
   state = createState()
+  openSettingsCalls = 0
   onboardingAnswers = {}
   onboardingRankings = { intel: [], ind: {} }
 }
@@ -293,6 +299,11 @@ function onboardingPayload() {
 }
 
 export const handlers = [
+  http.post('*/api/system/open-microphone-settings', () => {
+    openSettingsCalls += 1
+    return HttpResponse.json({ ok: true, host_app: '终端' })
+  }),
+
   http.get('*/api/status', () =>
     HttpResponse.json({
       device_mode: state.device_mode,
