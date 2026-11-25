@@ -109,7 +109,15 @@ CRISIS_COPY_TEXT = (
 
 LOW_BALANCE_HINT = "\n\n（提示：你的积分余额较低，可购买套餐获取积分。）"
 
-EXIT_WORDS = ("不想继续", "退出", "停止评估", "不做了", "算了", "结束评估")
+EXIT_WORDS = (
+    "不想继续", "退出", "停止评估", "不做了", "算了", "结束评估", "停止",
+    "换个话题", "答非所问", "不想答", "不想做", "别问了",
+)
+START_ASSESSMENT_WORDS = (
+    "开始", "好的", "好呀", "好啊", "可以", "确认", "是的",
+    "重新测评", "重新做", "再做一次", "嗯",
+)
+ASSESSMENT_COOLDOWN = timedelta(hours=24)
 STOP_WORDS = ("停止", "不舒服", "不练了", "结束")
 NEXT_WORDS = ("下一步", "继续", "好了", "完成")
 
@@ -167,6 +175,8 @@ class AgentLoop:
 
         self.state = State.NORMAL
         self._assessment: AssessmentState | None = None
+        self._assessment_failures = 0
+        self._pending_assessment: str | None = None
         self._practice: PracticeState | None = None
         self._journal_draft: dict | None = None
         self._journal_step: str | None = None
@@ -189,6 +199,8 @@ class AgentLoop:
         """切换会话:清空进行中的评估/练习,并用历史消息重建上下文。"""
         self.state = State.NORMAL
         self._assessment = None
+        self._assessment_failures = 0
+        self._pending_assessment = None
         self._practice = None
         self._journal_draft = None
         self._journal_step = None
@@ -210,6 +222,7 @@ class AgentLoop:
         risk = classify_rules(text)
         if risk.level == Risk.HIGH:
             self._assessment = None
+            self._pending_assessment = None
             reply = self._enter_crisis()
             self._record(text, reply)
             return reply
@@ -226,12 +239,16 @@ class AgentLoop:
             return self._handle_practice(text)
         if self.state == State.CRISIS:
             return self._handle_crisis_companion(text)
+        if self._pending_assessment:
+            return self._handle_pending_assessment(text, risk)
         return self._handle_normal(text, risk)
 
     # ---- 危机 ----
     def _enter_crisis(self, prefix: str = "") -> str:
         self.state = State.CRISIS
         self._assessment = None
+        self._assessment_failures = 0
+        self._pending_assessment = None
         self._practice = None
         self._journal_draft = None
         self._journal_step = None
@@ -273,7 +290,7 @@ class AgentLoop:
         return content
 
     # ---- 普通对话 ----
-    def _handle_normal(self, text: str, risk) -> str:
+    def _handle_normal(self, text: str, risk, *, allow_assessment: bool = True) -> str:
         if self._is_weekly_review(text):
             return self._weekly_review_text()
         skill = route(text, self.skills_dir)
@@ -282,8 +299,8 @@ class AgentLoop:
             # 没有已归档报告时保持“解读未启用”;有报告则允许概述内容(不给方向性建议)。
             if not context:
                 return FIXED_MESSAGE
-        if skill == "assessment":
-            return self._begin_assessment(text)
+        if skill == "assessment" and allow_assessment:
+            return self._confirm_assessment(text)
         if skill == "mental-health":
             if self._is_journal_start(text):
                 return self._begin_journal()
@@ -356,8 +373,59 @@ class AgentLoop:
             return "pss10"
         return "phq9"
 
-    def _begin_assessment(self, text: str) -> str:
+    def _recent_assessment(self, scale: str) -> dict | None:
+        """最近 24 小时内已完成的同量表记录;用于避免重复自动触发筛查。"""
+        if not self.store:
+            return None
+        try:
+            records = self.store.list_records(
+                "assessment", since=self.now() - ASSESSMENT_COOLDOWN
+            )
+        except Exception:
+            logger.debug("读取历史评估失败", exc_info=True)
+            return None
+        for record in reversed(records):
+            payload = record.get("payload") or {}
+            if payload.get("scale") == scale:
+                return record
+        return None
+
+    def _confirm_assessment(self, text: str) -> str:
+        """先确认再做:不把普通对话里的词直接变成一轮问答。"""
         scale = self._pick_scale(text)
+        questionnaire = load_questionnaire(scale)
+        if not questionnaire.available:
+            return (
+                f"{SCALE_NAMES.get(scale, scale)}该量表暂不可用"
+                "(题目文本待授权确认)。你可以先做 PHQ-9 抑郁筛查或 GAD-7 焦虑筛查。"
+            )
+        self.state = State.NORMAL
+        self._pending_assessment = scale
+        name = SCALE_NAMES.get(scale, scale)
+        recent = self._recent_assessment(scale)
+        if recent is not None:
+            payload = recent.get("payload") or {}
+            level = str(payload.get("level", ""))
+            label = LEVEL_LABELS.get(level, level)
+            return (
+                f"你在最近 24 小时内已经完成过一次{name}"
+                f"(总分 {payload.get('total')}/{payload.get('max_total')},{label})。\n"
+                "如果确实想重做,回复「重新测评」;回复其他内容我们继续聊。"
+            )
+        return (
+            f"看起来你想做一次{name}(共 {len(questionnaire.items)} 题,大约两分钟)。\n"
+            "回复「开始」我就开始;回复其他内容我们继续聊,不做也没关系。"
+        )
+
+    def _handle_pending_assessment(self, text: str, risk) -> str:
+        scale = self._pending_assessment
+        self._pending_assessment = None
+        if any(word in text for word in START_ASSESSMENT_WORDS):
+            return self._begin_assessment(scale)
+        # 未确认就按普通对话处理,且本轮不再触发筛查,避免"问了又问"。
+        return self._handle_normal(text, risk, allow_assessment=False)
+
+    def _begin_assessment(self, scale: str) -> str:
         questionnaire = load_questionnaire(scale)
         if not questionnaire.available:
             return (
@@ -367,10 +435,11 @@ class AgentLoop:
         self._assessment = AssessmentState(
             scale=scale, version=questionnaire.version, index=0, answers=[]
         )
+        self._assessment_failures = 0
         self.state = State.ASSESSING
         return (
             "这是一次筛查,结果是筛查提示,不是诊断。\n"
-            "请按最近两周的真实情况作答,随时可以说「不想继续」。\n\n"
+            "请按最近两周的真实情况作答,随时回复「退出」可以结束。\n\n"
             + self._question_text()
         )
 
@@ -401,11 +470,29 @@ class AgentLoop:
     def _handle_assessment(self, text: str) -> str:
         if any(word in text for word in EXIT_WORDS):
             self._assessment = None
+            self._assessment_failures = 0
             self.state = State.NORMAL
-            return "好的,已退出这次评估,答案不会保存。"
+            return (
+                "好的,已退出这次评估,答案不会保存。"
+                "我们可以继续聊别的;想重新做可以回复「重新测评」。"
+            )
         value = self._parse_answer(text)
         if value is None:
-            return "我没太明白,请回复选项序号或选项文字。\n" + self._question_text()
+            self._assessment_failures += 1
+            if self._assessment_failures >= 2:
+                # 连续答不上来说明用户并不在做题:退出,避免把后续对话全部吞掉。
+                self._assessment = None
+                self._assessment_failures = 0
+                self.state = State.NORMAL
+                return (
+                    "看起来你现在不想按题目回答,我先退出这次筛查,答案不会保存。\n"
+                    "我们可以继续聊别的;想重新做可以回复「重新测评」。"
+                )
+            return (
+                "我没太明白,请回复选项序号或选项文字;"
+                "如果不想继续,回复「退出」。\n" + self._question_text()
+            )
+        self._assessment_failures = 0
         current = self._assessment
         current.answers.append(value)
         current.index += 1

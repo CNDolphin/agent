@@ -66,3 +66,13 @@ def test_route_more_cases():
     assert route("我想记录一下今天的情绪") == "mental-health"
     assert route("给我一份 PHQ-9 量表") == "assessment"
     assert route("看看我的基因报告") == "gene-guidance"
+
+
+def test_route_report_scores_not_hijacked():
+    # 报告/分数是解读场景的高频词,不能被当成"要做筛查"
+    assert route("我比分数更了解我自己,你记住我的行为特点") is None
+    assert route("我的好多个能力分数都达到一百分,评分标准是怎么样的?") is None
+    assert route("帮我评估一下我的报告") is None
+    # 明确要做筛查时仍然命中
+    assert route("我想做个心理评估") == "assessment"
+    assert route("重新测评") == "assessment"

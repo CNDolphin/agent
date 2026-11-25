@@ -57,6 +57,7 @@ def test_end_to_end(tmp_path):
 
         # 3. 评估(GAD-7,答案全部为 1 => 7 分,轻度)
         loop.handle("我想做个焦虑测试")
+        loop.handle("开始")
         for _ in range(6):
             loop.handle("1")
         result_text = loop.handle("1")

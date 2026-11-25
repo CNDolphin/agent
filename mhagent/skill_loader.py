@@ -143,7 +143,12 @@ def find_skill_meta(name: str, skills_dir=None) -> SkillMeta:
 
 _GENE_MARKERS = ("基因", "天赋", "特长", "适合什么", "职业方向", "学什么专业", "专业方向")
 _MULTIPLE_INTELLIGENCE_MARKERS = ("多元智能", "八大智能", "潜能档案", "成长顾问", "加德纳", "智能雷达", "优势智能")
-_ASSESSMENT_MARKERS = ("测试", "量表", "评估", "筛查", "phq", "gad", "抑郁", "焦虑", "压力指数", "分数")
+# 只有明确表达"要做筛查"的词才算;「分数」是能力报告场景的高频词,不能作为触发词。
+_ASSESSMENT_MARKERS = ("测试", "量表", "筛查", "测评", "phq", "gad", "抑郁", "焦虑", "压力指数")
+# 「评估」单独出现过于宽泛(如"评估我的报告"),仅在无报告语境时才算。
+_ASSESSMENT_WEAK_MARKERS = ("评估",)
+# 报告语境标记:出现时优先按报告解读/普通对话处理,避免被筛查劫持。
+_REPORT_MARKERS = ("报告", "分数", "得分", "评分", "解读", "能力项", "智能")
 _MENTAL_HEALTH_MARKERS = (
     "呼吸", "放松", "冥想", "正念", "练习", "日记", "情绪", "睡眠", "cbt",
     "想法记录", "知识", "科普", "压力", "难过", "低落",
@@ -155,6 +160,7 @@ def route(text: str, skills_dir=None) -> str | None:
     if not text or not text.strip():
         return None
     normalized = text.strip().lower()
+    report_context = any(marker in normalized for marker in _REPORT_MARKERS)
     if any(marker in normalized for marker in _GENE_MARKERS):
         return "gene-guidance"
     # 须先于 assessment/mental-health:避免「智能分数」「评估」「压力」等通用词劫持。
@@ -162,9 +168,19 @@ def route(text: str, skills_dir=None) -> str | None:
         return "multiple-intelligence"
     if any(marker in normalized for marker in _ASSESSMENT_MARKERS):
         return "assessment"
+    if not report_context and any(
+        marker in normalized for marker in _ASSESSMENT_WEAK_MARKERS
+    ):
+        return "assessment"
     if any(marker in normalized for marker in _MENTAL_HEALTH_MARKERS):
         return "mental-health"
     for meta in list_skills(skills_dir):
-        if any(trigger.lower() in normalized for trigger in meta.triggers):
+        for trigger in meta.triggers:
+            lowered = trigger.lower()
+            if lowered not in normalized:
+                continue
+            # 报告语境下的「评估」是解读请求,不当作筛查意图。
+            if report_context and lowered in _ASSESSMENT_WEAK_MARKERS:
+                continue
             return meta.name
     return None

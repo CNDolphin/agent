@@ -104,7 +104,9 @@ def test_notify_failure_gives_copyable_text(make_loop):
 def test_assessment_uses_tool_result(make_loop):
     loop, llm, store, _ = make_loop([])
     start = loop.handle("我想做个抑郁测试")
-    assert "第 1/9 题" in start
+    assert "回复「开始」" in start
+    assert loop.state == State.NORMAL
+    assert "第 1/9 题" in loop.handle("开始")
     assert loop.state == State.ASSESSING
     for _ in range(8):
         loop.handle("0")
@@ -123,6 +125,7 @@ def test_assessment_item9_high_enters_crisis(make_loop):
     notifier = FakeNotifier()
     loop, llm, store, _ = make_loop([], authorized=True, notifier=notifier)
     loop.handle("我想做个抑郁测试")
+    loop.handle("开始")
     for _ in range(8):
         loop.handle("0")
     reply = loop.handle("3")
@@ -135,11 +138,61 @@ def test_assessment_item9_high_enters_crisis(make_loop):
 def test_assessment_can_exit_without_saving(make_loop):
     loop, llm, store, _ = make_loop([])
     loop.handle("我想做个抑郁测试")
+    loop.handle("开始")
     loop.handle("0")
     reply = loop.handle("不想继续")
     assert "已退出" in reply
     assert loop.state == State.NORMAL
     assert store.list_records("assessment") == []
+
+
+def test_assessment_requires_confirmation(make_loop):
+    loop, llm, store, _ = make_loop(["今天先不聊题。"])
+    reply = loop.handle("我想做个抑郁测试")
+    assert "回复「开始」" in reply
+    assert loop.state == State.NORMAL
+    assert store.list_records("assessment") == []
+    # 未确认时按普通对话处理,不会被问卷吞掉
+    reply = loop.handle("今天好累")
+    assert reply == "今天先不聊题。"
+    assert llm.call_count == 1
+    assert loop.state == State.NORMAL
+
+
+def test_report_scores_do_not_trigger_assessment(make_loop):
+    loop, llm, store, _ = make_loop(["你的分数来自自评问卷。"])
+    reply = loop.handle("我的好多个能力分数都达到一百分,评分标准是怎么样的?")
+    assert "第 1/9 题" not in reply
+    assert reply == "你的分数来自自评问卷。"
+    assert loop.state == State.NORMAL
+
+
+def test_assessment_exits_after_repeated_invalid_answers(make_loop):
+    loop, llm, store, _ = make_loop([])
+    loop.handle("我想做个抑郁测试")
+    loop.handle("开始")
+    loop.handle("随便聊聊吧")
+    reply = loop.handle("今天天气不错")
+    assert "我先退出这次筛查" in reply
+    assert loop.state == State.NORMAL
+    assert store.list_records("assessment") == []
+
+
+def test_assessment_not_restarted_within_cooldown(make_loop):
+    loop, llm, store, _ = make_loop([])
+    loop.handle("我想做个抑郁测试")
+    loop.handle("开始")
+    for _ in range(9):
+        loop.handle("0")
+    assert len(store.list_records("assessment")) == 1
+    # 24 小时内同一量表不再直接开问,需要显式「重新测评」
+    reply = loop.handle("我想再做一次抑郁测试")
+    assert "已经完成过一次" in reply
+    assert "重新测评" in reply
+    assert loop.state == State.NORMAL
+    assert len(store.list_records("assessment")) == 1
+    assert "第 1/9 题" in loop.handle("重新测评")
+    assert loop.state == State.ASSESSING
 
 
 def test_pss10_unavailable(make_loop):
