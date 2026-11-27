@@ -145,7 +145,7 @@ export function ProfilesPage() {
     {
       title: '操作',
       key: 'action',
-      width: 300,
+      width: 360,
       render: (_, profile) => (
         <Space wrap>
           {profile.id === activeId ? (
@@ -162,6 +162,12 @@ export function ProfilesPage() {
           )}
           <Button size="small" onClick={() => navigate(`/profiles/${profile.id}`)}>
             编辑
+          </Button>
+          <Button
+            size="small"
+            onClick={() => navigate(`/profiles/${profile.id}/interpretation-report`)}
+          >
+            解读报告
           </Button>
           {profile.role === 'sub' && (
             <>

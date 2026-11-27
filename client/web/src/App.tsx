@@ -12,6 +12,7 @@ import { ContactPage } from './pages/ContactPage'
 import { CreditsPage } from './pages/CreditsPage'
 import { LegacyMigratePage } from './pages/LegacyMigratePage'
 import { LoginPage } from './pages/LoginPage'
+import { InterpretationReportPage } from './pages/InterpretationReportPage'
 import { OnboardingPage } from './pages/OnboardingPage'
 import { PracticesPage } from './pages/PracticesPage'
 import { ProfileDetailPage } from './pages/ProfileDetailPage'
@@ -168,6 +169,14 @@ export default function App() {
           element={
             <Protected desktopOnly>
               <ProfileDetailPage />
+            </Protected>
+          }
+        />
+        <Route
+          path="/profiles/:profileId/interpretation-report"
+          element={
+            <Protected desktopOnly>
+              <InterpretationReportPage />
             </Protected>
           }
         />

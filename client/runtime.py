@@ -29,6 +29,7 @@ from mhagent.consent import ConsentStore
 from mhagent.llm.base import LLMError
 from mhagent.llm.gateway import GatewayClient, normalize_phone
 from mhagent.loop import AgentLoop
+from mhagent.mi.report import render_interpretation_report
 from mhagent.notifier import Notifier
 from mhagent.store.db import LocalStore
 
@@ -176,6 +177,10 @@ class Runtime:
                         self.store_dir,
                         clock=self._clock,
                         lock=self._lock,
+                        # onboarding 在下方创建;调用发生在提交报告时,闭包按当时的值解析。
+                        baseline_provider=lambda: (
+                            onboarding.get().get("result") if onboarding else None
+                        ),
                     )
                     reports.backfill_memory()
                     reports.refresh_memory()
@@ -205,6 +210,8 @@ class Runtime:
                     nickname=str(self.profile.get("nickname") or ""),
                     clock=self._clock,
                 )
+                # 老数据补摘要/记忆;已完成的成员在会话里即可用报告要点。
+                onboarding.ensure_interpretation()
 
                 def context_text(question=None):
                     """基础测评记忆优先，剩余预算留给报告记忆。"""
@@ -558,6 +565,50 @@ class Runtime:
             self.conversations.ensure_primary()
             return outcome
 
+    def interpretation_report(self, options=None, refresh: bool = False) -> dict:
+        with self._lock:
+            self._require()
+            state = self.onboarding.get()
+            result = state.get("result") or {}
+            # 旧的报告覆盖与已上传基因报告冲突时，打开页面即自动修复，无需等待手动点击。
+            if refresh or result.get("fusion_version") == "REPORT-OVERRIDE":
+                self._refresh_gene_basis()
+                state = self.onboarding.get()
+            if state.get("status") != "completed" or not state.get("result"):
+                raise OnboardingRequired("该成员尚未完成基础测评")
+            return render_interpretation_report(
+                state["result"],
+                self.profile,
+                options or {},
+                gene=state.get("gene"),
+                source=(state.get("interpretation") or {}).get("source"),
+            )
+
+    def _refresh_gene_basis(self) -> None:
+        """生成报告前重新解析该成员已上传的基因报告；无归档时用已保存基因分。"""
+        if self.is_main and self.reports is not None:
+            found = self.reports.latest_gene_report()
+            if found:
+                self.onboarding.apply_gene_report(
+                    found["scores"],
+                    title=found.get("title") or "提交基因报告",
+                    report_id=found.get("report_id"),
+                    filename=found.get("filename") or "",
+                    path=found.get("path") or "",
+                )
+                return
+        state = self.onboarding.get()
+        result = state.get("result") or {}
+        gene = state.get("gene") or {}
+        if gene.get("scores") and result.get("fusion_version") == "REPORT-OVERRIDE":
+            self.onboarding.apply_gene_report(
+                {"intel": gene["scores"], "ind": {}},
+                title=gene.get("title") or gene.get("filename") or "提交基因报告",
+                report_id=gene.get("report_id"),
+                filename=gene.get("filename") or "",
+                path=gene.get("path") or "",
+            )
+
     # ---- 对话与评估 ----
     def chat(self, text, session_id=None) -> dict:
         with self._lock:
@@ -667,6 +718,47 @@ class Runtime:
                 raise KeyError("报告不存在")
             item = access.mark_read(int(report_id))
             return {"item": item, "unread": access.unread_count()}
+
+    def upload_report(
+        self,
+        data: bytes,
+        filename: str,
+        title: str = "",
+        revise_interpretation: bool = False,
+    ) -> dict:
+        """会话内提交检测报告:仅主账号可写,子档案保持只读。
+
+        `revise_interpretation=True` 时把报告分数覆盖到基础测评结果上，
+        并重算解读报告摘要与会话记忆（后续对话即以报告为准）。
+        """
+        with self._lock:
+            self._require()
+            if not self.is_main or self.reports is None:
+                raise ValueError("请在主账号下提交检测报告")
+            result = self.reports.upload(data, filename, title)
+            if revise_interpretation:
+                item = result.get("item") or {}
+                scores = result.get("scores") or {}
+                report_title = str(item.get("title") or title or "提交报告")
+                report_id = item.get("report_id")
+                # 能解析出 8 项智能分的报告按基因报告处理：作为基因分参与融合。
+                if len((scores.get("intel") or {})) >= 8:
+                    revision = self.onboarding.apply_gene_report(
+                        scores,
+                        title=report_title,
+                        report_id=report_id,
+                        filename=filename,
+                        path=str(item.get("abs_path") or ""),
+                    )
+                else:
+                    revision = self.onboarding.apply_report_scores(
+                        scores,
+                        title=report_title,
+                        report_id=report_id,
+                        filename=filename,
+                    )
+                result["interpretation"] = revision
+            return result
 
     def unread_report_count(self) -> dict:
         with self._lock:

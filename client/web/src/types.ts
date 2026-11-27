@@ -162,6 +162,14 @@ export interface ReportReadResult {
   unread: number
 }
 
+export interface ReportUploadResult {
+  item: ReportItem
+  analysis: string
+  unread: number
+  scores?: { intel?: Record<string, number>; ind?: Record<string, number> }
+  interpretation?: ReportRevision
+}
+
 export interface CreditBalance {
   balance: number
   held: number
@@ -293,4 +301,51 @@ export interface OnboardingState {
   created_at?: string
   updated_at?: string
   completed_at?: string | null
+}
+
+export interface InterpretationReportMeta {
+  name: string
+  age: string
+  gender: string
+  edition: 'edu' | 'adult'
+  who: 'me' | 'kid'
+  purpose: string
+  job: string
+}
+
+export interface InterpretationReportSource {
+  kind: 'assessment' | 'report' | string
+  label?: string
+  title?: string
+  filename?: string
+  uploaded_at?: string
+  report_id?: number
+  coverage?: {
+    intel: number
+    ind: number
+    missing_intel: string[]
+    missing_ind: string[]
+  }
+}
+
+export interface InterpretationReportGene {
+  filename: string
+  confidence: string
+  uploaded_at: string
+}
+
+export interface InterpretationReport {
+  available: boolean
+  html: string
+  meta: InterpretationReportMeta
+  generated_at: string
+  source?: InterpretationReportSource
+  gene?: InterpretationReportGene | null
+}
+
+export interface ReportRevision {
+  revised: boolean
+  note: string
+  mode?: 'gene' | 'report'
+  coverage?: InterpretationReportSource['coverage']
 }

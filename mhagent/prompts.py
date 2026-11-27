@@ -18,7 +18,13 @@ BASE_PROMPT = (
     "引导其联系身边信任的人,并拨打心理援助热线 12356 或急救电话 120;"
     "绝不提供任何具体方法、步骤或工具细节;\n"
     "6. 不评判、不说教,用简洁、温和、具体的中文回应。\n"
-    "回答长度控制在 200 字以内,除非用户明确要求展开。"
+    "说话方式:\n"
+    "7. 像熟人聊天:先接住对方这句话,再回应或给建议,不要一上来就分析;\n"
+    "8. 日常对话 2-4 句;报告解读、评估说明最多 6-8 句;用户要求展开时再展开;\n"
+    "9. 不用标题、编号、项目符号、表格和 Markdown,把意思写成自然的一段话;\n"
+    "10. 不向用户逐条复述内部步骤或检查清单,只挑最有用的一两句说;\n"
+    "11. 「不是诊断」这类说明只在第一次对话、评估结果或正式结论时讲一次,之后不再重复;\n"
+    "12. 一次只问一个问题;不确定就先问清楚,不要脑补。"
 )
 
 CRISIS_PROMPT = (
@@ -27,7 +33,7 @@ CRISIS_PROMPT = (
     "鼓励用户联系身边信任的人,并再次提醒心理援助热线 12356 与急救电话 120。"
 )
 
-DEFAULT_MAX_CHARS = 2600
+DEFAULT_MAX_CHARS = 3600
 
 
 def build_system_prompt(
@@ -38,31 +44,35 @@ def build_system_prompt(
     max_context_chars: int = 1200,
     max_chars: int = DEFAULT_MAX_CHARS,
 ) -> str:
-    """拼接系统提示词;长度受限时优先保留基础边界,其次是额外上下文与技能说明。"""
+    """拼接系统提示词;优先完整保留技能说明,再用剩余预算裁剪上下文。"""
     head = BASE_PROMPT
     if crisis:
         head = head + "\n\n" + CRISIS_PROMPT
     parts = [head]
+    used = len(head)
 
-    remaining = max_chars - len(head)
-    context = (extra_context or "").strip()
-    if context and remaining > 1:
-        limit = min(max_context_chars, remaining - 1)
-        if limit > 0:
-            if len(context) > limit:
-                context = context[: max(limit - 1, 0)].rstrip() + "…"
-            parts.append(context)
-            remaining = max_chars - len("\n\n".join(parts))
-
-    if skill_body:
+    skill_section = ""
+    body = (skill_body or "").strip()
+    if body:
         prefix = "当前技能说明:\n"
-        body = skill_body.strip()
-        limit = remaining - len(prefix) - 2
+        limit = max_chars - used - 2 - len(prefix)
         if limit > 0:
             if len(body) > limit:
                 body = body[: max(limit - 1, 0)].rstrip() + "…"
             if body:
-                parts.append(prefix + body)
+                skill_section = prefix + body
+                used += len(skill_section) + 2
+
+    context = (extra_context or "").strip()
+    if context:
+        limit = min(max_context_chars, max_chars - used - 2)
+        if limit > 0:
+            if len(context) > limit:
+                context = context[: max(limit - 1, 0)].rstrip() + "…"
+            parts.append(context)
+
+    if skill_section:
+        parts.append(skill_section)
 
     prompt = "\n\n".join(parts)
     if len(prompt) > max_chars:

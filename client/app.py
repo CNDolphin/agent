@@ -670,6 +670,33 @@ def create_app(manager: RuntimeManager, local_token: str, dev_mode: bool = False
         return current(request).mock_pay(order_id)
 
     # ---- 检测报告 ----
+    @app.get("/api/profiles/{profile_id}/interpretation-report")
+    def interpretation_report(
+        profile_id: str,
+        request: Request,
+        age: str = Query(""),
+        gender: str = Query(""),
+        edition: str = Query(""),
+        who: str = Query(""),
+        purpose: str = Query(""),
+        job: str = Query(""),
+        refresh: bool = Query(False),
+    ):
+        denied = desktop_only(request)
+        if denied is not None:
+            return denied
+        options = {
+            "age": age,
+            "gender": gender,
+            "edition": edition,
+            "who": who,
+            "purpose": purpose,
+            "job": job,
+        }
+        return manager.runtime_for(profile_id).interpretation_report(
+            options, refresh=refresh
+        )
+
     @app.get("/api/reports")
     def list_reports(request: Request):
         return current(request).list_reports()
@@ -681,6 +708,23 @@ def create_app(manager: RuntimeManager, local_token: str, dev_mode: bool = False
     @app.post("/api/reports/sync")
     def sync_reports(request: Request):
         return current(request).sync_reports()
+
+    @app.post("/api/reports/upload")
+    def upload_report(request: Request, payload: dict = Body(...)):
+        filename = _text(payload, "filename")
+        content = str(payload.get("content") or "")
+        if not content:
+            raise ValueError("缺少参数:content")
+        try:
+            data = base64.b64decode(content, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise ValueError("文件内容不是合法的 base64") from exc
+        return current(request).upload_report(
+            data,
+            filename,
+            str(payload.get("title") or ""),
+            bool(payload.get("revise_interpretation")),
+        )
 
     @app.get("/api/reports/{report_id}/file")
     def report_file(report_id: int, request: Request):

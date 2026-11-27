@@ -7,12 +7,15 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
 
 from mhagent.mi import QuestionBank, QuizError, build_memory_text, fuse_scores, score_quiz
+from mhagent.mi.memory import REPORT_DIGEST_VERSION, build_report_digest
+from mhagent.mi.report import analyze_report, build_meta
 
 ASSESSMENT_KIND = "mi_assessment"
 GENE_DIR = "uploads/gene"
@@ -71,6 +74,17 @@ def _extract_text(data: bytes) -> str:
         except UnicodeDecodeError:
             continue
     return data.decode("utf-8", errors="ignore")
+
+
+def _score_value(value):
+    """把报告分数归一化到 0-120 的一位小数；非法值返回 None。"""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(number):
+        return None
+    return round(min(120.0, max(0.0, number)), 1)
 
 
 _GENE_PROMPT = """你是基因检测报告的结构化抽取器。用户会上传一份报告文本。
@@ -328,6 +342,8 @@ class OnboardingService:
             "path": source_path,
             "uploaded_at": self.now().isoformat(),
         }
+        if payload.get("status") == "completed" and payload.get("result"):
+            self._refresh_after_gene(payload)
         self._save(record_id, payload)
         return dict(payload["gene"])
 
@@ -343,15 +359,13 @@ class OnboardingService:
     def clear_gene(self) -> dict:
         record_id, payload = self._load()
         payload["gene"] = None
+        if payload.get("status") == "completed" and payload.get("result"):
+            self._refresh_after_gene(payload)
         self._save(record_id, payload)
         return self.get()
 
     # ---- 完成 ----
-    def complete(self) -> dict:
-        record_id, payload = self._load()
-        if payload.get("status") == "completed":
-            return {"result": payload.get("result"), "memory_text": payload.get("memory_text")}
-
+    def _fuse_result(self, payload: dict) -> dict:
         scored = score_quiz(payload.get("answers") or {}, self.bank)
         if not scored["valid"]:
             raise OnboardingError("问卷未达到有效门槛：至少需要完成 10 项能力指标（20 题）")
@@ -370,15 +384,352 @@ class OnboardingService:
             )
 
         try:
-            result = fuse_scores(scored, intel_order, ind_map, payload.get("gene"), self.bank)
+            return fuse_scores(scored, intel_order, ind_map, payload.get("gene"), self.bank)
         except QuizError as exc:
             raise OnboardingError(str(exc)) from exc
+
+    @staticmethod
+    def _assessment_source(gene=None) -> dict:
+        source = {"kind": "assessment", "label": "基础测评（问卷 + 主观排序 + 可选基因融合）"}
+        filename = str((gene or {}).get("filename") or "")
+        if filename:
+            source["label"] = f"基础测评 + 基因报告《{filename}》"
+            source["gene"] = filename
+        return source
+
+    def _source_from_payload(self, payload: dict) -> dict:
+        override = payload.get("report_override") or {}
+        result = payload.get("result") or {}
+        if override or result.get("fusion_version") == "REPORT-OVERRIDE":
+            title = str(override.get("title") or "提交报告")
+            return {"kind": "report", "label": f"会话提交报告《{title}》", **override}
+        return self._assessment_source(payload.get("gene"))
+
+    def _build_interpretation(self, result: dict, *, source: dict, gene=None) -> tuple[dict, str]:
+        """生成解读报告要点摘要与会话记忆。"""
+        meta = build_meta({"nickname": self.nickname, "age_range": ""}, {})
+        analysis = analyze_report(result, meta)
+        interpretation = {
+            "version": REPORT_DIGEST_VERSION,
+            "generated_at": self.now().isoformat(),
+            "digest": build_report_digest(analysis),
+            "source": source,
+        }
         memory = build_memory_text(
-            result, self.nickname, gene=payload.get("gene"), generated_at=self.now()
+            result,
+            self.nickname,
+            gene=gene,
+            generated_at=self.now(),
+            report=analysis,
+            source=source,
+        )
+        return interpretation, memory
+
+    def _refresh_after_gene(self, payload: dict) -> None:
+        """测评完成后基因变更时重算结果与记忆；报告覆盖结果保持报告优先。"""
+        result = payload.get("result") or {}
+        if result.get("fusion_version") == "REPORT-OVERRIDE":
+            return
+        try:
+            refreshed = self._fuse_result(payload)
+        except OnboardingError:
+            return
+        interpretation, memory = self._build_interpretation(
+            refreshed, source=self._assessment_source(payload.get("gene")), gene=payload.get("gene")
+        )
+        payload["result"] = refreshed
+        payload["interpretation"] = interpretation
+        payload["memory_text"] = memory
+        payload.pop("report_override", None)
+
+    def complete(self) -> dict:
+        record_id, payload = self._load()
+        if payload.get("status") == "completed":
+            return {
+                "result": payload.get("result"),
+                "memory_text": payload.get("memory_text"),
+                "interpretation": payload.get("interpretation"),
+            }
+
+        result = self._fuse_result(payload)
+        interpretation, memory = self._build_interpretation(
+            result, source=self._assessment_source(payload.get("gene")), gene=payload.get("gene")
         )
         payload["result"] = result
         payload["memory_text"] = memory
+        payload["interpretation"] = interpretation
+        payload.pop("report_override", None)
         payload["status"] = "completed"
         payload["completed_at"] = self.now().isoformat()
         self._save(record_id, payload)
-        return {"result": result, "memory_text": memory}
+        return {"result": result, "memory_text": memory, "interpretation": interpretation}
+
+    def ensure_interpretation(self) -> None:
+        """为已完成但缺少报告摘要的历史数据补齐摘要与记忆。"""
+        record_id, payload = self._load()
+        if payload.get("status") != "completed" or not payload.get("result"):
+            return
+        interpretation = payload.get("interpretation") or {}
+        memory = str(payload.get("memory_text") or "")
+        if (
+            interpretation.get("version") == REPORT_DIGEST_VERSION
+            and "【解读报告要点】" in memory
+        ):
+            return
+        source = self._source_from_payload(payload)
+        interpretation, memory = self._build_interpretation(
+            payload["result"],
+            source=source,
+            gene=None if source.get("kind") == "report" else payload.get("gene"),
+        )
+        payload["interpretation"] = interpretation
+        payload["memory_text"] = memory
+        self._save(record_id, payload)
+
+    def apply_report_scores(
+        self,
+        scores,
+        *,
+        title: str = "提交报告",
+        report_id=None,
+        filename: str = "",
+    ) -> dict:
+        """用会话提交报告的分数覆盖测评结果，并重算解读报告与记忆。"""
+        record_id, payload = self._load()
+        if payload.get("status") != "completed" or not payload.get("result"):
+            return {
+                "revised": False,
+                "note": "当前成员尚未完成基础测评，报告已归档但未修正解读报告",
+            }
+
+        raw_intel = (scores or {}).get("intel") or {}
+        raw_ind = (scores or {}).get("ind") or {}
+        all_intel = list(self.bank.intel_ids)
+        all_ind = [
+            ind["id"]
+            for intel in self.bank.intelligences
+            for ind in intel["indicators"]
+        ]
+        intel_scores: dict[str, float] = {}
+        for key, value in raw_intel.items():
+            if key in all_intel:
+                number = _score_value(value)
+                if number is not None:
+                    intel_scores[key] = number
+        ind_scores: dict[str, float] = {}
+        for key, value in raw_ind.items():
+            if key in all_ind:
+                number = _score_value(value)
+                if number is not None:
+                    ind_scores[key] = number
+
+        if not intel_scores and not ind_scores:
+            return {"revised": False, "note": "未从报告中解析出分数，解读报告未修正"}
+
+        current = payload["result"]
+        old_ind = current.get("ind") or {}
+        old_intel = current.get("intel") or {}
+
+        override_ind: dict[str, dict] = {}
+        for intel in self.bank.intelligences:
+            items = []
+            for ind in intel["indicators"]:
+                previous = old_ind.get(ind["id"]) or {}
+                score = ind_scores.get(ind["id"])
+                if score is None:
+                    score = _score_value(previous.get("score")) or 0.0
+                items.append(
+                    {
+                        "id": ind["id"],
+                        "name": ind["name"],
+                        "intelligence": intel["id"],
+                        "quiz": score,
+                        "inner": score,
+                        "score": score,
+                        "source": "report",
+                    }
+                )
+            for rank, item in enumerate(sorted(items, key=lambda x: -x["score"]), 1):
+                item["rank"] = rank
+            for item in items:
+                override_ind[item["id"]] = item
+
+        override_intel: dict[str, dict] = {}
+        for intel in self.bank.intelligences:
+            values = [override_ind[ind["id"]]["score"] for ind in intel["indicators"]]
+            score = intel_scores.get(intel["id"])
+            if score is None:
+                score = round(sum(values) / len(values), 1) if values else 0.0
+            previous = old_intel.get(intel["id"]) or {}
+            override_intel[intel["id"]] = {
+                "id": intel["id"],
+                "name": intel["name"],
+                "inner": score,
+                "score": score,
+                "source": "report",
+                "rank": previous.get("rank") or 99,
+            }
+        for rank, item in enumerate(
+            sorted(override_intel.values(), key=lambda x: -x["score"]), 1
+        ):
+            item["rank"] = rank
+
+        result = {
+            "ind": override_ind,
+            "intel": override_intel,
+            "fusion_version": "REPORT-OVERRIDE",
+            "gene_used": False,
+        }
+        missing_intel = [iid for iid in all_intel if iid not in intel_scores]
+        missing_ind = [iid for iid in all_ind if iid not in ind_scores]
+        coverage = {
+            "intel": len(intel_scores),
+            "ind": len(ind_scores),
+            "missing_intel": missing_intel,
+            "missing_ind": missing_ind,
+        }
+        now = self.now().isoformat()
+        source = {
+            "kind": "report",
+            "label": f"会话提交报告《{title}》",
+            "title": title,
+            "filename": filename,
+            "report_id": report_id,
+            "uploaded_at": now,
+            "coverage": coverage,
+        }
+        interpretation, memory = self._build_interpretation(result, source=source, gene=None)
+        payload["result"] = result
+        payload["interpretation"] = interpretation
+        payload["memory_text"] = memory
+        payload["report_override"] = {
+            "title": title,
+            "filename": filename,
+            "report_id": report_id,
+            "uploaded_at": now,
+            "coverage": coverage,
+        }
+        payload["updated_at"] = now
+        self._save(record_id, payload)
+
+        missing_total = len(missing_intel) + len(missing_ind)
+        note = (
+            f"解读报告已按这份报告修正（智能 {coverage['intel']}/{len(all_intel)}、"
+            f"指标 {coverage['ind']}/{len(all_ind)}）"
+        )
+        if missing_total:
+            note += f"；缺失 {missing_total} 项沿用原测评分数"
+        return {"revised": True, "note": note, "coverage": coverage}
+
+    def _overlay_report_indicators(self, result: dict, raw_ind: dict) -> dict:
+        """用报告中的 40 项指标覆盖融合结果的指标层，缺失项保持融合值。"""
+        all_ind = [
+            ind["id"]
+            for intel in self.bank.intelligences
+            for ind in intel["indicators"]
+        ]
+        ind_scores: dict[str, float] = {}
+        for key, value in (raw_ind or {}).items():
+            if key in all_ind:
+                number = _score_value(value)
+                if number is not None:
+                    ind_scores[key] = number
+        for ind_id, value in ind_scores.items():
+            item = (result.get("ind") or {}).get(ind_id)
+            if item is not None:
+                item["score"] = value
+                item["source"] = "gene-report"
+        for intel in self.bank.intelligences:
+            items = [
+                result["ind"][ind["id"]]
+                for ind in intel["indicators"]
+                if ind["id"] in (result.get("ind") or {})
+            ]
+            for rank, item in enumerate(sorted(items, key=lambda entry: -entry["score"]), 1):
+                item["rank"] = rank
+        return {
+            "intel": len(self.bank.intel_ids),
+            "ind": len(ind_scores),
+            "missing_intel": [],
+            "missing_ind": [ind_id for ind_id in all_ind if ind_id not in ind_scores],
+        }
+
+    def apply_gene_report(
+        self,
+        scores,
+        *,
+        title: str = "提交基因报告",
+        report_id=None,
+        filename: str = "",
+        path: str = "",
+    ) -> dict:
+        """把会话提交的基因报告写入基因分，并按融合口径重算解读报告。"""
+        record_id, payload = self._load()
+        raw_intel = (scores or {}).get("intel") or {}
+        raw_ind = (scores or {}).get("ind") or {}
+        intel_scores: dict[str, float] = {}
+        for intel_id in self.bank.intel_ids:
+            number = _score_value(raw_intel.get(intel_id))
+            if number is not None:
+                intel_scores[intel_id] = float(int(round(number)))
+        if len(intel_scores) < len(self.bank.intel_ids):
+            return {
+                "revised": False,
+                "mode": "gene",
+                "note": "报告中未识别到完整的 8 项智能分，未按基因报告更新",
+            }
+
+        current_gene = payload.get("gene") or {}
+        result = payload.get("result") or {}
+        if (
+            str(current_gene.get("report_id")) == str(report_id)
+            and current_gene.get("scores") == {key: int(value) for key, value in intel_scores.items()}
+            and result.get("fusion_version") != "REPORT-OVERRIDE"
+            and "report_override" not in payload
+        ):
+            return {
+                "revised": False,
+                "mode": "gene",
+                "note": "解读报告已是最新的基因报告结果",
+            }
+
+        gene = {
+            "filename": filename or f"{title}.txt",
+            "confidence": "high",
+            "scores": {key: int(value) for key, value in intel_scores.items()},
+            "notes": f"从会话提交报告《{title}》解析",
+            "uploaded_at": self.now().isoformat(),
+            "path": path,
+            "report_id": report_id,
+            "title": title,
+        }
+        payload["gene"] = gene
+        if payload.get("status") != "completed" or not result:
+            self._save(record_id, payload)
+            return {
+                "revised": False,
+                "mode": "gene",
+                "note": "基因分已保存，完成基础测评后即可生成解读报告",
+            }
+
+        try:
+            refreshed = self._fuse_result(payload)
+        except OnboardingError as exc:
+            return {"revised": False, "mode": "gene", "note": str(exc)}
+        coverage = self._overlay_report_indicators(refreshed, raw_ind)
+        source = self._assessment_source(gene)
+        interpretation, memory = self._build_interpretation(
+            refreshed, source=source, gene=gene
+        )
+        payload["result"] = refreshed
+        payload["interpretation"] = interpretation
+        payload["memory_text"] = memory
+        payload.pop("report_override", None)
+        payload["updated_at"] = self.now().isoformat()
+        self._save(record_id, payload)
+        note = (
+            f"解读报告已按基因报告《{title}》更新"
+            f"（基因分 8 项，指标覆盖 {coverage['ind']}/{coverage['ind'] + len(coverage['missing_ind'])} 项）"
+        )
+        return {"revised": True, "mode": "gene", "note": note, "coverage": coverage}
+

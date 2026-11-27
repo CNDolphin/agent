@@ -91,8 +91,7 @@ it('用户管理可新建子账号并切换到该档案', async () => {
   expect(await screen.findByRole('heading', { name: '对话支持' })).toBeInTheDocument()
 })
 
-it('唯一会话可直接重命名', async () => {
-  const user = userEvent.setup()
+it('会话页不展示会话标题与重命名', async () => {
   readyState()
   setMockState({
     sessions: [
@@ -107,16 +106,9 @@ it('唯一会话可直接重命名', async () => {
   })
   renderApp('/')
 
-  expect(await screen.findByText('我的会话')).toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: '新建会话' })).not.toBeInTheDocument()
-
-  await user.click(screen.getByRole('button', { name: '重命名' }))
-  const input = await screen.findByLabelText('会话标题')
-  await user.clear(input)
-  await user.type(input, '睡前情绪')
-  await user.click(screen.getByRole('button', { name: /保\s*存/ }))
-
-  expect(await screen.findByText('睡前情绪')).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: '对话支持' })).toBeInTheDocument()
+  expect(screen.queryByText('我的会话')).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: '重命名' })).not.toBeInTheDocument()
 })
 
 it('未完成测评时自动进入入学测评', async () => {
@@ -383,10 +375,47 @@ function setFakeRecognition(errorCode = '') {
   ;(window as unknown as { SpeechRecognition?: unknown }).SpeechRecognition = FakeRecognition
 }
 
+/** 浏览器原生语音合成的测试替身：记录朗读文本与取消次数，不自动结束。 */
+class FakeSynthesisUtterance {
+  text: string
+  lang = ''
+  rate = 1
+  voice: unknown = null
+  onend: (() => void) | null = null
+  onerror: (() => void) | null = null
+
+  constructor(text: string) {
+    this.text = text
+  }
+}
+
+const speechSamples: string[] = []
+let speechCancelCount = 0
+
+function setFakeSynthesis() {
+  speechSamples.length = 0
+  speechCancelCount = 0
+  ;(window as unknown as { speechSynthesis?: unknown }).speechSynthesis = {
+    speak: (utterance: FakeSynthesisUtterance) => {
+      speechSamples.push(utterance.text)
+    },
+    cancel: () => {
+      speechCancelCount += 1
+    },
+    getVoices: () => [],
+  }
+  ;(window as unknown as { SpeechSynthesisUtterance?: unknown }).SpeechSynthesisUtterance =
+    FakeSynthesisUtterance
+}
+
 afterEach(() => {
   FakeRecognition.errorCode = ''
   delete (window as unknown as { SpeechRecognition?: unknown }).SpeechRecognition
   delete (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition
+  delete (window as unknown as { speechSynthesis?: unknown }).speechSynthesis
+  delete (window as unknown as { SpeechSynthesisUtterance?: unknown }).SpeechSynthesisUtterance
+  speechSamples.length = 0
+  speechCancelCount = 0
 })
 
 it('对话页支持语音输入并回填转写文字', async () => {
@@ -425,4 +454,22 @@ it('麦克风权限被拒时可一键打开系统设置', async () => {
   expect(await screen.findByText(/已打开系统设置/)).toBeInTheDocument()
   expect(screen.getByText(/「终端」/)).toBeInTheDocument()
   expect(getOpenSettingsCalls()).toBe(1)
+})
+
+it('助手回复后自动朗读并可点击停止', async () => {
+  const user = userEvent.setup()
+  readyState()
+  setFakeSynthesis()
+  renderApp('/')
+
+  const input = await screen.findByLabelText('消息输入')
+  await user.type(input, '我有点焦虑')
+  await user.click(screen.getByRole('button', { name: /发\s*送/ }))
+
+  expect(await screen.findByText('我在听,你可以慢慢说。')).toBeInTheDocument()
+  await waitFor(() => expect(speechSamples.join('')).toContain('我在听'))
+
+  const stopButton = await screen.findByRole('button', { name: '停止朗读' })
+  await user.click(stopButton)
+  expect(speechCancelCount).toBeGreaterThan(0)
 })

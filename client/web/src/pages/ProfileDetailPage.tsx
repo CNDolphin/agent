@@ -205,6 +205,9 @@ export function ProfileDetailPage() {
           <Button type="primary" loading={saving} onClick={() => void save()}>
             保存资料
           </Button>
+          <Button onClick={() => navigate(`/profiles/${current.id}/interpretation-report`)}>
+            查看解读报告
+          </Button>
           <Button onClick={() => navigate('/contact')}>紧急联系人</Button>
           {isMain && (
             <Button onClick={() => navigate('/login?tab=reset')}>重置主账号密码</Button>

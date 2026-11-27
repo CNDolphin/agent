@@ -164,3 +164,140 @@ export function useSpeechRecognition(
 
   return { supported, listening, start, stop }
 }
+
+/* ---------------- 语音合成 ---------------- */
+
+export interface SpeechSynthesisController {
+  supported: boolean
+  speakingId: string | null
+  speak: (id: string, text: string) => void
+  stop: () => void
+}
+
+const MAX_SPEECH_CHUNKS = 8
+const MAX_SPEECH_CHUNK_CHARS = 120
+
+type UtteranceCtor = new (text: string) => SpeechSynthesisUtterance
+
+function getSynthesis(): SpeechSynthesis | null {
+  if (typeof window === 'undefined') return null
+  return window.speechSynthesis ?? null
+}
+
+function getUtteranceCtor(): UtteranceCtor | null {
+  if (typeof window === 'undefined') return null
+  const scope = window as unknown as { SpeechSynthesisUtterance?: UtteranceCtor }
+  return scope.SpeechSynthesisUtterance ?? null
+}
+
+/** 去掉 Markdown、链接与多余空白，留下适合朗读的纯文本。 */
+export function cleanSpeechText(text: string): string {
+  return String(text || '')
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`([^`]*)`/g, '$1')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/https?:\/\/\S+/g, ' ')
+    .replace(/[#*_>~|]/g, ' ')
+    .replace(/\r/g, '')
+    .replace(/[ \t\u3000]+/g, ' ')
+    .replace(/\n{2,}/g, '。')
+    .replace(/\n/g, '。')
+    .replace(/。{2,}/g, '。')
+    .trim()
+}
+
+/** 按句切块：单块不超过 120 字，最多 8 块，避免超长回复持续朗读。 */
+export function splitSpeechChunks(text: string): string[] {
+  const cleaned = cleanSpeechText(text)
+  if (!cleaned) return []
+  const sentences = cleaned.match(/[^。！？!?；;]+[。！？!?；;]?/g) ?? [cleaned]
+  const chunks: string[] = []
+  let current = ''
+  for (const sentence of sentences) {
+    const piece = sentence.trim()
+    if (!piece) continue
+    if (!current) {
+      current = piece
+    } else if ((current + piece).length <= MAX_SPEECH_CHUNK_CHARS) {
+      current += piece
+    } else {
+      chunks.push(current)
+      current = piece
+    }
+    if (chunks.length >= MAX_SPEECH_CHUNKS) break
+  }
+  if (current && chunks.length < MAX_SPEECH_CHUNKS) chunks.push(current)
+  return chunks.slice(0, MAX_SPEECH_CHUNKS)
+}
+
+function pickChineseVoice(synth: SpeechSynthesis, lang: string): SpeechSynthesisVoice | undefined {
+  const voices = synth.getVoices?.() ?? []
+  const prefix = lang.slice(0, 2).toLowerCase()
+  return voices.find((voice) => voice.lang?.toLowerCase().startsWith(prefix))
+}
+
+/** 浏览器原生语音合成：一次只播放一条，按句串行朗读。 */
+export function useSpeechSynthesis(lang = 'zh-CN'): SpeechSynthesisController {
+  const supported = useRef(getSynthesis() !== null && getUtteranceCtor() !== null).current
+  const [speakingId, setSpeakingId] = useState<string | null>(null)
+  const queueRef = useRef<string | null>(null)
+
+  const stop = useCallback(() => {
+    queueRef.current = null
+    getSynthesis()?.cancel()
+    setSpeakingId(null)
+  }, [])
+
+  const speak = useCallback(
+    (id: string, text: string) => {
+      const synth = getSynthesis()
+      const Utterance = getUtteranceCtor()
+      if (!synth || !Utterance) return
+      const chunks = splitSpeechChunks(text)
+      if (chunks.length === 0) {
+        stop()
+        return
+      }
+      synth.cancel()
+      queueRef.current = id
+      setSpeakingId(id)
+      let index = 0
+
+      const playNext = () => {
+        if (queueRef.current !== id) return
+        if (index >= chunks.length) {
+          queueRef.current = null
+          setSpeakingId(null)
+          return
+        }
+        const utterance = new Utterance(chunks[index])
+        index += 1
+        utterance.lang = lang
+        utterance.rate = 1
+        const voice = pickChineseVoice(synth, lang)
+        if (voice) utterance.voice = voice
+        utterance.onend = playNext
+        utterance.onerror = () => {
+          if (queueRef.current !== id) return
+          queueRef.current = null
+          setSpeakingId(null)
+        }
+        synth.speak(utterance)
+      }
+
+      playNext()
+    },
+    [lang, stop],
+  )
+
+  useEffect(
+    () => () => {
+      queueRef.current = null
+      getSynthesis()?.cancel()
+    },
+    [],
+  )
+
+  return { supported, speakingId, speak, stop }
+}
